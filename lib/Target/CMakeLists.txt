@@ -1,4 +1,5 @@
 add_subdirectory(DFGToDot)
+add_subdirectory(DFGToMocasin)
 add_subdirectory(EmitCToLaksaRef)
 add_subdirectory(EmitHLSToCpp)
 add_subdirectory(EmitHLSToHLSBuildScript)
