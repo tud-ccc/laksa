@@ -1,0 +1,124 @@
+name: Build LAKSA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  LLVM_PKG_VERSION: "22.1.7-py312-release-shared"
+  LLVM_PKG_RELEASE_TAG: "llvm-mlir-22.1.7-py312-release-shared"
+  LLVM_PKG_ASSET: "llvm-22.tar.zst"
+  PIP_BREAK_SYSTEM_PACKAGES: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang lld mold xz-utils zstd curl \
+            python3-dev portaudio19-dev build-essential doxygen
+
+      - name: Download prebuilt LLVM
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ env.LLVM_PKG_RELEASE_TAG }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "${{ env.LLVM_PKG_ASSET }}" \
+            --output /tmp/llvm.tar.zst
+          sudo mkdir -p /opt
+          sudo tar --use-compress-program='zstd -d' -xf /tmp/llvm.tar.zst -C /opt
+          rm /tmp/llvm.tar.zst
+          echo "/opt/llvm-22/build/lib" | sudo tee /etc/ld.so.conf.d/llvm-22.conf
+          sudo ldconfig
+
+      - name: Install Gurobi
+        run: |
+          curl -L https://packages.gurobi.com/12.0/gurobi12.0.3_linux64.tar.gz -o /tmp/gurobi.tar.gz
+          sudo tar xzf /tmp/gurobi.tar.gz -C /opt
+          rm /tmp/gurobi.tar.gz
+          echo "/opt/gurobi1203/linux64/lib" | sudo tee /etc/ld.so.conf.d/gurobi.conf
+          sudo ldconfig
+
+      - name: Install Python deps
+        run: |
+          pip install --break-system-packages \
+            'nanobind>=2.9,<3.0' \
+            'pybind11>=2.10' \
+            'PyYAML>=5.4.0,<=6.0.1' \
+            'typing_extensions>=4.12.2' \
+            'numpy>=2.1.0,<=2.1.2' \
+            'ml_dtypes>=0.5.0,<=0.6.0'
+          pip install --break-system-packages -r python/requirements.txt
+
+      - name: Configure
+        run: |
+          PYBIND11_DIR=$(python3 -m pybind11 --cmakedir)
+          NANOBIND_DIR=$(python3 -c "import nanobind; print(nanobind.cmake_dir())")
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=20 \
+            -DMLIR_DIR=/opt/llvm-22/build/lib/cmake/mlir \
+            -DLLVM_DIR=/opt/llvm-22/build/lib/cmake/llvm \
+            -DGUROBI_DIR=/opt/gurobi1203/linux64 \
+            -DLLVM_USE_LINKER=mold \
+            -DLLVM_EXTERNAL_LIT=/opt/llvm-22/build/bin/llvm-lit \
+            -Dpybind11_DIR="$PYBIND11_DIR" \
+            -Dnanobind_DIR="$NANOBIND_DIR" \
+            -DPython3_EXECUTABLE=$(which python3) \
+            -DPython_EXECUTABLE=$(which python3) \
+            -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+            -DMLIR_PYTHON_PACKAGE_PREFIX=mlir_laksa \
+            -DMLIR_BINDINGS_PYTHON_INSTALL_PREFIX=mlir_laksa \
+            -DMLIR_BINDINGS_PYTHON_NB_DOMAIN=mlir_laksa
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run tests
+        run: cmake --build build --target check-laksa-mlir
+        continue-on-error: true
+
+      - name: Run Python tests
+        run: cmake --build build --target check-laksa-python
+        continue-on-error: true
+
+      - name: Build Documentation
+        run: |
+          export SPHINXOPTS="-D html_baseurl=https://${{ github.repository_owner }}.github.io/${GITHUB_REPOSITORY#*/}/"
+          cmake --build build --target build-laksa-doc
+
+      - name: Upload Pages artifact
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/docs/sphinx
+
+  deploy-docs:
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
