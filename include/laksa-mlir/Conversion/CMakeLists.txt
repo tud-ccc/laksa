@@ -1,0 +1,3 @@
+add_custom_target(LAKSAConversionIncGen)
+
+mlir_gen_passes(LAKSAConversion)

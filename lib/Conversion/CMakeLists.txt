@@ -1,0 +1,8 @@
+add_subdirectory(AffineToEmitHLS)
+add_subdirectory(ArithToEmitHLS)
+add_subdirectory(ConvertToEmitHLS)
+add_subdirectory(DFGToEmitHLS)
+add_subdirectory(FuncToDFG)
+add_subdirectory(IndexToEmitHLS)
+add_subdirectory(LinalgToLAKSALoops)
+add_subdirectory(MemRefPadToLAKSALoops)
