@@ -1,4 +1,6 @@
 add_subdirectory(DFGToDot)
 add_subdirectory(EmitHLSToCpp)
 add_subdirectory(EmitHLSToHLSTcl)
+add_subdirectory(EmitHLSToKriaDtsi)
+add_subdirectory(EmitHLSToLaksaHeader)
 add_subdirectory(EmitHLSToVivadoTcl)

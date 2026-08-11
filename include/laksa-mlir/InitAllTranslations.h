@@ -8,6 +8,8 @@ namespace mlir {
 void registerDFGToDotTranslation();
 void registerEmitHLSToCppTranslation();
 void registerEmitHLSToHLSTclTranslation();
+void registerEmitHLSToKriaDtsiTranslation();
+void registerEmitHLSToLaksaHeaderTranslation();
 void registerEmitHLSToVivadoTclTranslation();
 
 inline void registerAllLAKSAMLIRTranslations()
@@ -16,6 +18,8 @@ inline void registerAllLAKSAMLIRTranslations()
         registerDFGToDotTranslation();
         registerEmitHLSToCppTranslation();
         registerEmitHLSToHLSTclTranslation();
+        registerEmitHLSToKriaDtsiTranslation();
+        registerEmitHLSToLaksaHeaderTranslation();
         registerEmitHLSToVivadoTclTranslation();
         return true;
     }();

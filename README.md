@@ -7,8 +7,6 @@
   LAKSA
 </h1>
 
----
-
 ## About the project
 
 This repo contains **LAKSA**, the compiler infrastructure component of the
@@ -27,6 +25,15 @@ project represents one layer of that pipeline.
 The paper describing this project has been accepted at
 [CASES'26](https://esweek.org/cases/). The proceedings aren't out yet (a
 link to the paper will be added here later).
+
+## Related projects
+
+[`laksa-hls-kria-driver`](https://github.com/tud-ccc/laksa-hls-kria-dirver) is
+a companion Linux kernel driver for deploying LAKSA-generated HLS kernels on
+Xilinx Kria boards (tested on the KV260, ZynqMP). It exposes `/dev/laksa`, a
+character device through which userspace programs manage the DMA buffer
+lifecycle and drive kernel execution over AXI Lite via `ioctl` calls, with no
+kernel recompilation needed when switching between HLS designs.
 
 ## Development Environment (Nix)
 
