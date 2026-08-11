@@ -352,6 +352,7 @@ module attributes {tf_saved_model.semantics} {
     }
   }
   emithls.func @main_top(%arg0: !emithls.ptr<i64>, %arg1: !emithls.ptr<i128>) {
+    emithls.top_interface
     %var_array_0 = emithls.variable as !emithls.array<8x!emithls.stream<i8>>
     emithls.pragma.bind_storage variable=%var_array_0(!emithls.array<8x!emithls.stream<i8>>) type=fifo impl=srl
     emithls.pragma.stream variable=%var_array_0(!emithls.array<8x!emithls.stream<i8>>) depth=10

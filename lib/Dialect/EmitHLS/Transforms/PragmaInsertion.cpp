@@ -19,7 +19,7 @@
 #include <optional>
 
 #define DEBUG_TYPE "emithls-pragma-insertion"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[emithls-pragma-insertion] "; X;                      \
         llvm::dbgs() << "\n")
@@ -66,7 +66,8 @@ struct SplitIOLoop : public OpConversionPattern<ForOp> {
 
         auto factorAttr = op->getAttrOfType<IntegerAttr>("dse.factor");
         if (!factorAttr) {
-            LAKSA_DEBUG(llvm::dbgs() << "  Dropping bare dse.io tag at " << loc);
+            LAKSA_DEBUG(
+                llvm::dbgs() << "  Dropping bare dse.io tag at " << loc);
             rewriter.modifyOpInPlace(op, [&]() { op->removeAttr("dse.io"); });
             return success();
         }
@@ -405,6 +406,11 @@ struct RewriteFuncSignature : public OpConversionPattern<FuncOp> {
 
         rewriter.setInsertionPointToStart(entry);
         if (isTop) {
+            // Marks this function as the design's top for Vitis HLS,
+            // emitting a "#pragma HLS INTERFACE" for every port and letting
+            // downstream tooling (e.g. the EmitHLSToHLSTcl/EmitHLSToVivadoTcl
+            // translations) find the top function by walking for this op.
+            PragmaTopInterfaceOp::create(rewriter, loc);
             // The top function's own buffer declarations stay directly in
             // its body, but its calls move into a "#pragma HLS DATAFLOW"
             // region so Vitis HLS runs the pipeline stages concurrently
@@ -485,7 +491,8 @@ struct InsertArrayPragmas : public OpConversionPattern<VariableOp> {
         if (!memAttr) return failure();
 
         Location loc = op.getLoc();
-        LAKSA_DEBUG(llvm::dbgs() << "Rewriting memory type variable at " << loc);
+        LAKSA_DEBUG(
+            llvm::dbgs() << "Rewriting memory type variable at " << loc);
         Value variable = op.getVariable();
         LAKSA_DEBUG(
             llvm::dbgs() << "  Inserting array pragmas for " << op.getLoc()

@@ -131,6 +131,11 @@ void main_node_1(hls::stream<ap_int<32>> arg0[8], hls::stream<ap_int<8>> arg1[8]
 }
 void main_top(ap_int<64> *arg0, ap_int<64> *arg1)
 {
+  #pragma HLS INTERFACE mode=m_axi port=arg0 offset=slave bundle=gmem_arg0
+  #pragma HLS INTERFACE mode=s_axilite port=arg0 bundle=control
+  #pragma HLS INTERFACE mode=m_axi port=arg1 offset=slave bundle=gmem_arg1
+  #pragma HLS INTERFACE mode=s_axilite port=arg1 bundle=control
+  #pragma HLS INTERFACE mode=s_axilite port=return bundle=control
   hls::stream<ap_int<8>> stream0[8];
   #pragma HLS BIND_STORAGE variable=stream0 type=fifo impl=srl
   #pragma HLS STREAM variable=stream0 depth=10
