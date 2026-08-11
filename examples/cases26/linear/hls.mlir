@@ -1,5 +1,5 @@
-// Generated from input.mlir with command
-// laksa-opt --convert-to-emithls
+// This is the output of command
+// ladle input.mlir -p convert-to-emithls -o hls.mlir
 
 module attributes {tf_saved_model.semantics} {
   emithls.include "algorithm"
