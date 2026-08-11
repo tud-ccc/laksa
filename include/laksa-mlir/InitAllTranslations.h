@@ -7,12 +7,16 @@ namespace mlir {
 
 void registerDFGToDotTranslation();
 void registerEmitHLSToCppTranslation();
+void registerEmitHLSToHLSTclTranslation();
+void registerEmitHLSToVivadoTclTranslation();
 
 inline void registerAllLAKSAMLIRTranslations()
 {
     static bool initOnce = []() {
         registerDFGToDotTranslation();
         registerEmitHLSToCppTranslation();
+        registerEmitHLSToHLSTclTranslation();
+        registerEmitHLSToVivadoTclTranslation();
         return true;
     }();
     (void)initOnce;
