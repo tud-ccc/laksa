@@ -16,10 +16,12 @@ NB_MODULE(_mlirConversion, m)
     m.doc() = "LAKSA conversion passes.";
 
     mlirRegisterLAKSAConversionPasses();
+    mlirRegisterLAKSAConvertToEmitCPipelines();
     mlirRegisterLAKSAConvertToEmitHLSPipelines();
 
     m.def("register_passes", []() { mlirRegisterLAKSAConversionPasses(); });
     m.def("register_pipelines", []() {
+        mlirRegisterLAKSAConvertToEmitCPipelines();
         mlirRegisterLAKSAConvertToEmitHLSPipelines();
     });
 
@@ -58,6 +60,16 @@ NB_MODULE(_mlirConversion, m)
             pm,
             mlirCreateLAKSAConversionConvertMemRefPadToLAKSALoops());
     });
+
+    m.def(
+        "add_convert_to_emitc_pipeline",
+        [](MlirPassManager pm, uint32_t maxAllocSizeInBytes) {
+            mlirConversionAddConvertToEmitCPasses(
+                mlirPassManagerGetAsOpPassManager(pm),
+                maxAllocSizeInBytes);
+        },
+        nb::arg("pm"),
+        nb::arg("max_alloc_size_in_bytes") = 100000000);
 
     m.def(
         "add_convert_to_emithls_pipeline",

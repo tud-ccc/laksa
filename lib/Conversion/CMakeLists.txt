@@ -1,5 +1,6 @@
 add_subdirectory(AffineToEmitHLS)
 add_subdirectory(ArithToEmitHLS)
+add_subdirectory(ConvertToEmitC)
 add_subdirectory(ConvertToEmitHLS)
 add_subdirectory(DFGToEmitHLS)
 add_subdirectory(FuncToDFG)

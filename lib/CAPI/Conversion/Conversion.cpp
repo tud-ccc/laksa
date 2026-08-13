@@ -5,6 +5,7 @@
 
 #include "laksa-mlir-c/Conversion.h"
 
+#include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 #include "laksa-mlir/Conversion/ConvertToEmitHLS/ConvertToEmitHLS.h"
 #include "laksa-mlir/Conversion/Passes.h"
 #include "mlir/CAPI/Pass.h"
@@ -14,6 +15,14 @@
 
 using namespace mlir;
 using namespace mlir::laksa;
+
+void mlirRegisterLAKSAConvertToEmitCPipelines()
+{ registerConvertToEmitCPipelines(); }
+
+void mlirConversionAddConvertToEmitCPasses(
+    MlirOpPassManager passManager,
+    uint32_t maxAllocSizeInBytes)
+{ addConvertToEmitCPasses(*unwrap(passManager), maxAllocSizeInBytes); }
 
 void mlirRegisterLAKSAConvertToEmitHLSPipelines()
 { registerConvertToEmitHLSPipelines(); }

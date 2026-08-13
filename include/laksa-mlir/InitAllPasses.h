@@ -3,6 +3,7 @@
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
 
+#include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 #include "laksa-mlir/Conversion/ConvertToEmitHLS/ConvertToEmitHLS.h"
 #include "laksa-mlir/Conversion/Passes.h"
 #include "laksa-mlir/Dialect/DFG/Transforms/Passes.h"
@@ -27,6 +28,7 @@ inline void registerAllLAKSAMLIRPasses()
     laksa::registerLAKSAConversionPasses();
 
     // Conversion pipelines
+    laksa::registerConvertToEmitCPipelines();
     laksa::registerConvertToEmitHLSPipelines();
 }
 
