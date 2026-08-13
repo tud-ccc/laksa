@@ -7,10 +7,15 @@
 
 #include "laksa-mlir/Dialect/EmitHLS/IR/EmitHLSTypes.h"
 #include "laksa-mlir/Target/EmitHLSToCpp/HLSCppEmitter.h"
+#include "laksa-mlir/Target/EmitHLSToHLSTcl/HLSTclEmitter.h"
+#include "laksa-mlir/Target/EmitHLSToKriaDtsi/KriaDtsiEmitter.h"
+#include "laksa-mlir/Target/EmitHLSToLaksaHeader/LaksaHeaderEmitter.h"
+#include "laksa-mlir/Target/EmitHLSToVivadoTcl/VivadoTclEmitter.h"
 #include "mlir-c/IR.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Registration.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 
 #include "llvm/Support/raw_ostream.h"
@@ -95,4 +100,62 @@ MlirLogicalResult mlirTranslateEmitHLSToCpp(
         return mlirLogicalResultFailure();
     callback(mlirStringRefCreate(buf.data(), buf.size()), userData);
     return mlirLogicalResultSuccess();
+}
+
+namespace {
+/// Runs a module-scoped emitter over `op`, streaming what it wrote through
+/// `callback`. Fails if `op` is not a module, as those emitters walk the whole
+/// design rather than a single operation.
+template<typename EmitterFn>
+MlirLogicalResult translateModule(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData,
+    EmitterFn emitter)
+{
+    auto moduleOp = dyn_cast<ModuleOp>(unwrap(op));
+    if (!moduleOp) return mlirLogicalResultFailure();
+
+    std::string buf;
+    llvm::raw_string_ostream os(buf);
+    if (failed(emitter(moduleOp, os))) return mlirLogicalResultFailure();
+    callback(mlirStringRefCreate(buf.data(), buf.size()), userData);
+    return mlirLogicalResultSuccess();
+}
+} // namespace
+
+MlirLogicalResult mlirTranslateEmitHLSToHLSTcl(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData)
+{
+    return translateModule(op, callback, userData, translateEmitHLSToHLSTcl);
+}
+
+MlirLogicalResult mlirTranslateEmitHLSToKriaDtsi(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData)
+{
+    return translateModule(op, callback, userData, translateEmitHLSToKriaDtsi);
+}
+
+MlirLogicalResult mlirTranslateEmitHLSToLaksaHeader(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData)
+{
+    return translateModule(
+        op,
+        callback,
+        userData,
+        translateEmitHLSToLaksaHeader);
+}
+
+MlirLogicalResult mlirTranslateEmitHLSToVivadoTcl(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData)
+{
+    return translateModule(op, callback, userData, translateEmitHLSToVivadoTcl);
 }

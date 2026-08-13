@@ -23,6 +23,25 @@ using namespace mlir;
 using namespace mlir::python;
 using namespace mlir::python::nanobind_adaptors;
 
+/// Collects what `translator` streams out into a string, raising a Python
+/// ValueError carrying `errorMessage` if it fails.
+template<typename TranslateFn>
+static std::string translateToString(
+    MlirOperation op,
+    TranslateFn translator,
+    const char* errorMessage)
+{
+    std::string result;
+    MlirLogicalResult res = translator(
+        op,
+        [](MlirStringRef str, void* userData) {
+            static_cast<std::string*>(userData)->append(str.data, str.length);
+        },
+        &result);
+    if (mlirLogicalResultIsFailure(res)) throw nb::value_error(errorMessage);
+    return result;
+}
+
 static void populateDialectEmitHLSSubmodule(nb::module_ m)
 {
     //===--------------------------------------------------------------------===//
@@ -94,18 +113,50 @@ static void populateDialectEmitHLSSubmodule(nb::module_ m)
     emithls.def(
         "translate_to_cpp",
         [](MlirOperation op) -> std::string {
-            std::string result;
-            MlirLogicalResult res = mlirTranslateEmitHLSToCpp(
+            return translateToString(
                 op,
-                [](MlirStringRef str, void* userData) {
-                    static_cast<std::string*>(userData)->append(
-                        str.data,
-                        str.length);
-                },
-                &result);
-            if (mlirLogicalResultIsFailure(res))
-                throw nb::value_error("Translation to HLS C++ failed.");
-            return result;
+                mlirTranslateEmitHLSToCpp,
+                "Translation to HLS C++ failed.");
+        },
+        nb::arg("op"));
+
+    emithls.def(
+        "translate_to_hls_tcl",
+        [](MlirOperation op) -> std::string {
+            return translateToString(
+                op,
+                mlirTranslateEmitHLSToHLSTcl,
+                "Translation to a Vitis HLS run_hls.tcl script failed.");
+        },
+        nb::arg("op"));
+
+    emithls.def(
+        "translate_to_kria_dtsi",
+        [](MlirOperation op) -> std::string {
+            return translateToString(
+                op,
+                mlirTranslateEmitHLSToKriaDtsi,
+                "Translation to a Kria device tree overlay source failed.");
+        },
+        nb::arg("op"));
+
+    emithls.def(
+        "translate_to_laksa_header",
+        [](MlirOperation op) -> std::string {
+            return translateToString(
+                op,
+                mlirTranslateEmitHLSToLaksaHeader,
+                "Translation to a laksa-hls-kria-driver header failed.");
+        },
+        nb::arg("op"));
+
+    emithls.def(
+        "translate_to_vivado_tcl",
+        [](MlirOperation op) -> std::string {
+            return translateToString(
+                op,
+                mlirTranslateEmitHLSToVivadoTcl,
+                "Translation to a Vivado run_vivado.tcl script failed.");
         },
         nb::arg("op"));
 

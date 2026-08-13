@@ -10,4 +10,8 @@ add_mlir_upstream_c_api_library(MLIRCAPIEmitHLS
         EmitHLSIR
         EmitHLSTransforms
         MLIRTargetEmitHLSToCpp
+        MLIRTargetEmitHLSToHLSTcl
+        MLIRTargetEmitHLSToKriaDtsi
+        MLIRTargetEmitHLSToLaksaHeader
+        MLIRTargetEmitHLSToVivadoTcl
 )

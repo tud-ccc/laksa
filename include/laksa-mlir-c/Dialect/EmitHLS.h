@@ -1,5 +1,4 @@
-//===-- laksa-mlir-c/Dialect/EmitHLS.h - C API for EmitHLS dialect ---*- C
-//-*-===//
+//===----- EmitHLS.h - C API for EmitHLS dialect ------------------*- C -*-===//
 //
 // @author  Jiahong Bi (jiahong.bi@tu-dresden.de)
 //===----------------------------------------------------------------------===//
@@ -72,6 +71,36 @@ MLIR_CAPI_EXPORTED MlirType mlirEmitHLSArrayTypeGetElementType(MlirType type);
 /// Translates the EmitHLS IR rooted at `op` to HLS C++ and streams the
 /// result through `callback`.
 MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitHLSToCpp(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData);
+
+/// Translates the EmitHLS IR rooted at `op` to a Vitis HLS run_hls.tcl script
+/// and streams the result through `callback`. `op` must be a module.
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitHLSToHLSTcl(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData);
+
+/// Translates the EmitHLS IR rooted at `op` to a Kria device tree overlay
+/// source (.dts) for the laksa-hls-kria-driver and streams the result through
+/// `callback`. `op` must be a module.
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitHLSToKriaDtsi(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData);
+
+/// Translates the EmitHLS IR rooted at `op` to a C header of buffer sizes and
+/// AXI-Lite register offsets for the laksa-hls-kria-driver's userspace API and
+/// streams the result through `callback`. `op` must be a module.
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitHLSToLaksaHeader(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData);
+
+/// Translates the EmitHLS IR rooted at `op` to a Vivado run_vivado.tcl script
+/// and streams the result through `callback`. `op` must be a module.
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitHLSToVivadoTcl(
     MlirOperation op,
     MlirStringCallback callback,
     void* userData);
