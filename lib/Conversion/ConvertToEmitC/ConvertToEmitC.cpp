@@ -64,7 +64,8 @@ void mlir::laksa::addConvertToEmitCPasses(
     // array, the only kind of buffer EmitC can express.
     bufferization::PromoteBuffersToStackPassOptions promoteOptions;
     promoteOptions.maxAllocSizeInBytes = maxAllocSizeInBytes;
-    pm.addPass(bufferization::createPromoteBuffersToStackPass(promoteOptions));
+    pm.nest("func.func").addPass(
+        bufferization::createPromoteBuffersToStackPass(promoteOptions));
     // ArithToEmitC has no pattern for the min/max ops; expand them into the
     // cmpi/select pairs it does handle.
     pm.addPass(arith::createArithExpandOpsPass());
