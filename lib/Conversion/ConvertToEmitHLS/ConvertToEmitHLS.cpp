@@ -45,7 +45,7 @@ void mlir::laksa::addConvertToEmitHLSPasses(
     pm.addPass(createLinalgGeneralizeNamedOpsPass());
     pm.addPass(linalg::createLinalgScalarizeSplatDensePass());
     pm.addPass(createLinalgInlineScalarOperandsPass());
-    pm.addPass(func::createFuncOutlineComputationLeafPass());
+    pm.nest("func.func").addPass(func::createFuncOutlineComputationLeafPass());
     pm.addPass(createConvertFuncToDFGPass());
     pm.addPass(dfg::createDFGChannelFanoutExpansionPass());
     pm.addPass(dfg::createDFGOperatorToProcessPass());
