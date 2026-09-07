@@ -9,7 +9,6 @@ on:
 env:
   LLVM_PKG_VERSION: "22.1.7-py312-release-shared"
   LLVM_PKG_RELEASE_TAG: "llvm-mlir-22.1.7-py312-release-shared"
-  LLVM_PKG_ASSET: "llvm-22.tar.zst"
   PIP_BREAK_SYSTEM_PACKAGES: "1"
 
 permissions:
@@ -17,7 +16,20 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    name: build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            llvm_asset: llvm-22-amd64.tar.zst
+            gurobi_platform: linux64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            llvm_asset: llvm-22-arm64.tar.zst
+            gurobi_platform: armlinux64
     permissions:
       contents: read
     steps:
@@ -36,7 +48,7 @@ jobs:
         run: |
           gh release download "${{ env.LLVM_PKG_RELEASE_TAG }}" \
             --repo "${{ github.repository }}" \
-            --pattern "${{ env.LLVM_PKG_ASSET }}" \
+            --pattern "${{ matrix.llvm_asset }}" \
             --output /tmp/llvm.tar.zst
           sudo mkdir -p /opt
           sudo tar --use-compress-program='zstd -d' -xf /tmp/llvm.tar.zst -C /opt
@@ -46,10 +58,10 @@ jobs:
 
       - name: Install Gurobi
         run: |
-          curl -L https://packages.gurobi.com/12.0/gurobi12.0.3_linux64.tar.gz -o /tmp/gurobi.tar.gz
+          curl -L "https://packages.gurobi.com/12.0/gurobi12.0.3_${{ matrix.gurobi_platform }}.tar.gz" -o /tmp/gurobi.tar.gz
           sudo tar xzf /tmp/gurobi.tar.gz -C /opt
           rm /tmp/gurobi.tar.gz
-          echo "/opt/gurobi1203/linux64/lib" | sudo tee /etc/ld.so.conf.d/gurobi.conf
+          echo "/opt/gurobi1203/${{ matrix.gurobi_platform }}/lib" | sudo tee /etc/ld.so.conf.d/gurobi.conf
           sudo ldconfig
 
       - name: Install Python deps
@@ -74,7 +86,7 @@ jobs:
             -DCMAKE_CXX_STANDARD=20 \
             -DMLIR_DIR=/opt/llvm-22/build/lib/cmake/mlir \
             -DLLVM_DIR=/opt/llvm-22/build/lib/cmake/llvm \
-            -DGUROBI_DIR=/opt/gurobi1203/linux64 \
+            -DGUROBI_DIR=/opt/gurobi1203/${{ matrix.gurobi_platform }} \
             -DLLVM_USE_LINKER=mold \
             -DLLVM_EXTERNAL_LIT=/opt/llvm-22/build/bin/llvm-lit \
             -Dpybind11_DIR="$PYBIND11_DIR" \
@@ -103,7 +115,7 @@ jobs:
           cmake --build build --target build-laksa-doc
 
       - name: Upload Pages artifact
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' && matrix.arch == 'amd64' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/docs/sphinx
