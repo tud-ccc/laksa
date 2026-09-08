@@ -1,8 +1,10 @@
 .cache
+.devcontainer
 .direnv
 .venv
 .vscode
 .envrc
 
 build
+install
 dse.log

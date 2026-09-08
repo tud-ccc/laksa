@@ -17,6 +17,7 @@ from mlir_laksa.dialects import arith, dfg, linalg, memref
 import mlir_laksa.conversion as conversion
 from mlir_laksa.passmanager import PassManager
 
+
 def build_kernel_node_0(i8, i32) -> dfg.ProcessOp:
     input_shape = [1, 224, 224, 8]
     output_shape = [1, 222, 222, 8]
@@ -44,9 +45,7 @@ def build_kernel_node_0(i8, i32) -> dfg.ProcessOp:
         loop_op = dfg.LoopOp([in_port], [out_port])
         loop_block = loop_op.body.blocks.append()
         with InsertionPoint(loop_block):
-            token = dfg.PullAsMemRefOp(
-                MemRefType.get(input_shape, i8), in_port
-            )
+            token = dfg.PullAsMemRefOp(MemRefType.get(input_shape, i8), in_port)
             weight = memref.GetGlobalOp(
                 MemRefType.get(weight_shape, i8), "__constant_8x3x3x8xi8"
             )
@@ -85,6 +84,7 @@ def build_kernel_node_0(i8, i32) -> dfg.ProcessOp:
 
             dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
+
 
 def build_kernel_node_1(i8, i32) -> dfg.ProcessOp:
     shape = [1, 222, 222, 8]
@@ -148,6 +148,7 @@ def build_kernel_node_1(i8, i32) -> dfg.ProcessOp:
             dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
 
+
 def build_combined_region(
     conv_output_type,
     conv_input_type,
@@ -156,17 +157,13 @@ def build_combined_region(
 ) -> dfg.RegionOp:
     region_op = dfg.RegionOp(
         "combined",
-        TypeAttr.get(
-            FunctionType.get([conv_output_type], [conv_input_type])
-        ),
+        TypeAttr.get(FunctionType.get([conv_output_type], [conv_input_type])),
     )
     block = region_op.body.blocks.append(conv_output_type, conv_input_type)
     with InsertionPoint(block):
         conv_in, conv_out = block.arguments
         conv_mid_in_type = dfg.InputType.get(element_type=i32, shape=[1, 222, 222, 8])
-        conv_mid_out_type = dfg.OutputType.get(
-            element_type=i32, shape=[1, 222, 222, 8]
-        )
+        conv_mid_out_type = dfg.OutputType.get(element_type=i32, shape=[1, 222, 222, 8])
         conv_mid_in, conv_mid_out = dfg.ChannelOp(
             conv_mid_in_type, conv_mid_out_type, i32
         ).results
@@ -174,6 +171,7 @@ def build_combined_region(
         dfg.InstantiateOp("kernel_node_0", [conv_in], [conv_mid_in])
         dfg.InstantiateOp("kernel_node_1", [conv_mid_out], [conv_out])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -185,7 +183,10 @@ def main() -> None:
             i32 = IntegerType.get_signless(32)
 
             memref.GlobalOp(
-                "__constant_8xi32", MemRefType.get([8], i32), sym_visibility="private", constant=True
+                "__constant_8xi32",
+                MemRefType.get([8], i32),
+                sym_visibility="private",
+                constant=True,
             )
             memref.GlobalOp(
                 "__constant_8x3x3x8xi8",
@@ -212,6 +213,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

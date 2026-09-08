@@ -19,10 +19,10 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import dfg, emithls, memref
 from mlir_laksa.passmanager import PassManager
 
+
 def const(ty, value):
-    return emithls.VariableOp(
-        ty, init_number=IntegerAttr.get(ty, value), is_const=True
-    )
+    return emithls.VariableOp(ty, init_number=IntegerAttr.get(ty, value), is_const=True)
+
 
 def build_kernel_node_0(i8, i32, index_ty) -> dfg.ProcessOp:
     """pull_as_memref -> linebuf -> window -> conditional accumulate into a
@@ -75,12 +75,16 @@ def build_kernel_node_0(i8, i32, index_ty) -> dfg.ProcessOp:
                     with InsertionPoint(expr_block):
                         a0 = emithls.ArithAddOp(idx0, c_neg2.result)
                         cmp0 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a0.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a0.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         a1 = emithls.ArithAddOp(idx1, c_neg2.result)
                         cmp1 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a1.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a1.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         and_op = emithls.ArithLogicalAndOp([cmp0.result, cmp1.result])
@@ -97,8 +101,8 @@ def build_kernel_node_0(i8, i32, index_ty) -> dfg.ProcessOp:
                             alloc = memref.AllocOp(
                                 MemRefType.get(shape, i32), [], [], alignment=64
                             )
-                            alloc.operation.attributes["fill_with"] = (
-                                IntegerAttr.get(i32, 0)
+                            alloc.operation.attributes["fill_with"] = IntegerAttr.get(
+                                i32, 0
                             )
 
                             for3 = emithls.ForOp(0, 3, 1)
@@ -133,6 +137,7 @@ def build_kernel_node_0(i8, i32, index_ty) -> dfg.ProcessOp:
                                         )
                             dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
+
 
 def build_kernel_node_1(i8, i32, i64, index_ty) -> dfg.ProcessOp:
     """indexed dfg.pull/dfg.push with no intervening memref op, fanning out
@@ -223,6 +228,7 @@ def build_kernel_node_1(i8, i32, i64, index_ty) -> dfg.ProcessOp:
                         dfg.PushOp(cast13.result, out1_port, [c0_index.result, idx2])
     return process_op
 
+
 def build_kernel_node_2(i8, index_ty) -> dfg.ProcessOp:
     """a port pulled/pushed as a whole memref by both a passthrough
     (pull_as_memref feeding push_memref directly) and a plain memref.alloc
@@ -262,24 +268,32 @@ def build_kernel_node_2(i8, index_ty) -> dfg.ProcessOp:
                     with InsertionPoint(expr_block):
                         a0 = emithls.ArithAddOp(idx0, c_neg1_index.result)
                         cmp0 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a0.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a0.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         m1 = emithls.ArithMulOp(idx0, c_neg1_index.result)
                         a1 = emithls.ArithAddOp(m1.result, c30_index.result)
                         cmp1 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a1.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a1.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         a2 = emithls.ArithAddOp(idx1, c_neg1_index.result)
                         cmp2 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a2.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a2.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         m2 = emithls.ArithMulOp(idx1, c_neg1_index.result)
                         a3 = emithls.ArithAddOp(m2.result, c30_index.result)
                         cmp3 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a3.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a3.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         and_op = emithls.ArithLogicalAndOp(
@@ -298,6 +312,7 @@ def build_kernel_node_2(i8, index_ty) -> dfg.ProcessOp:
                     with InsertionPoint(else_block):
                         dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
+
 
 def build_scalarize(i8, i32, index_ty) -> dfg.ProcessOp:
     """a port whose every axis is size 1 collapses all the way to a scalar
@@ -320,6 +335,7 @@ def build_scalarize(i8, i32, index_ty) -> dfg.ProcessOp:
             cast0 = emithls.ArithCastOp(i32, token0.result)
             dfg.PushOp(cast0.result, out_port, [c0_index.result, c0_index.result])
     return process_op
+
 
 def build_plain(i8, i32, index_ty) -> dfg.ProcessOp:
     """a process with no size-1 axis on any port must be left byte-identical."""
@@ -345,6 +361,7 @@ def build_plain(i8, i32, index_ty) -> dfg.ProcessOp:
                 dfg.PushOp(cast0.result, out_port, [idx0])
     return process_op
 
+
 def build_producer(i8, i32, index_ty) -> dfg.ProcessOp:
     in_type = dfg.OutputType.get(element_type=i8, shape=[1, 8])
     out_type = dfg.InputType.get(element_type=i32, shape=[1, 8])
@@ -368,6 +385,7 @@ def build_producer(i8, i32, index_ty) -> dfg.ProcessOp:
                 dfg.PushOp(cast0.result, out_port, [c0.result, idx0])
     return process_op
 
+
 def build_consumer(i32, index_ty) -> dfg.ProcessOp:
     in_type = dfg.OutputType.get(element_type=i32, shape=[1, 8])
     out_type = dfg.InputType.get(element_type=i32, shape=[1, 8])
@@ -390,6 +408,7 @@ def build_consumer(i32, index_ty) -> dfg.ProcessOp:
                 dfg.PushOp(token0.result, out_port, [c0.result, idx0])
     return process_op
 
+
 def build_top_region(i8, i32) -> dfg.RegionOp:
     """channel and region boundary types must shrink in lockstep with the
     processes they connect."""
@@ -409,6 +428,7 @@ def build_top_region(i8, i32) -> dfg.RegionOp:
         dfg.InstantiateOp("producer", [in0], [ch_in])
         dfg.InstantiateOp("consumer", [ch_out], [out0])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -438,6 +458,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

@@ -6,9 +6,11 @@
 #ifndef LAKSA_MLIR_C_CONVERSION_H
 #define LAKSA_MLIR_C_CONVERSION_H
 
+#include "mlir-c/IR.h"
 #include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -27,6 +29,17 @@ MLIR_CAPI_EXPORTED void mlirConversionAddConvertToEmitHLSPasses(
     MlirOpPassManager passManager,
     int64_t availableBRAM,
     int64_t availableDSP);
+
+//===---------------------------------------------------------------------===//
+// Translation (Upstream)
+//===---------------------------------------------------------------------===//
+
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitCToCpp(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData,
+    bool declareVariablesAtTop,
+    MlirStringRef fileId);
 
 #ifdef __cplusplus
 }

@@ -21,10 +21,10 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import emithls, memref
 from mlir_laksa.passmanager import PassManager
 
+
 def const(ty, value):
-    return emithls.VariableOp(
-        ty, init_number=IntegerAttr.get(ty, value), is_const=True
-    )
+    return emithls.VariableOp(ty, init_number=IntegerAttr.get(ty, value), is_const=True)
+
 
 def build_pad(i8, index_ty, arr8_stream_i8) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
@@ -87,9 +87,8 @@ def build_pad(i8, index_ty, arr8_stream_i8) -> emithls.FuncOp:
                         emithls.StreamWriteOp(load0.result, arg1, [idx2])
     return func_op
 
-def build_conv(
-    i8, i32, index_ty, arr8_stream_i8, arr8_stream_i32
-) -> emithls.FuncOp:
+
+def build_conv(i8, i32, index_ty, arr8_stream_i8, arr8_stream_i32) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "conv",
         TypeAttr.get(FunctionType.get([arr8_stream_i8, arr8_stream_i32], [])),
@@ -304,10 +303,9 @@ def build_conv(
                                         var_int32_0.variable,
                                         mul0.result,
                                     )
-                        emithls.StreamWriteOp(
-                            var_int32_0.variable, arg1, [idx2b]
-                        )
+                        emithls.StreamWriteOp(var_int32_0.variable, arg1, [idx2b])
     return func_op
+
 
 def build_relu(
     i8, i32, i64, index_ty, arr8_stream_i32, arr8_stream_i8
@@ -382,6 +380,7 @@ def build_relu(
                 emithls.StreamWriteOp(cast3.result, arg1, [idx1])
     return func_op
 
+
 def build_kernel(
     arr8_stream_i8, arr8_stream_i32, pad_func, conv_func, relu_func
 ) -> emithls.FuncOp:
@@ -401,6 +400,7 @@ def build_kernel(
         emithls.CallOp([], relu_func.sym_name.value, [var_array_1.variable, arg1])
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -413,17 +413,11 @@ def main() -> None:
             index_ty = IndexType.get()
             stream_i8 = emithls.StreamType.get(element_type=i8)
             stream_i32 = emithls.StreamType.get(element_type=i32)
-            arr8_stream_i8 = emithls.ArrayType.get(
-                element_type=stream_i8, shape=[8]
-            )
-            arr8_stream_i32 = emithls.ArrayType.get(
-                element_type=stream_i32, shape=[8]
-            )
+            arr8_stream_i8 = emithls.ArrayType.get(element_type=stream_i8, shape=[8])
+            arr8_stream_i32 = emithls.ArrayType.get(element_type=stream_i32, shape=[8])
 
             pad_func = build_pad(i8, index_ty, arr8_stream_i8)
-            conv_func = build_conv(
-                i8, i32, index_ty, arr8_stream_i8, arr8_stream_i32
-            )
+            conv_func = build_conv(i8, i32, index_ty, arr8_stream_i8, arr8_stream_i32)
             relu_func = build_relu(
                 i8, i32, i64, index_ty, arr8_stream_i32, arr8_stream_i8
             )
@@ -440,6 +434,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

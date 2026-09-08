@@ -18,6 +18,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import arith, func, linalg, linalg_ext, tensor
 from mlir_laksa.passmanager import PassManager
 
+
 def build_scalarize(i8) -> func.FuncOp:
     tensor4 = RankedTensorType.get([4], i8)
     id_map = AffineMap.get(1, 0, [AffineExpr.get_dim(0)])
@@ -51,6 +52,7 @@ def build_scalarize(i8) -> func.FuncOp:
         func.ReturnOp([generic.result_tensors[0], generic.result_tensors[1]])
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -68,6 +70,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

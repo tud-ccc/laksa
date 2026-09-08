@@ -15,6 +15,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import arith, func, linalg, linalg_ext, tensor
 from mlir_laksa.passmanager import PassManager
 
+
 def build_transpose(i32) -> func.FuncOp:
     tensor2x4 = RankedTensorType.get([2, 4], i32)
     tensor4x2 = RankedTensorType.get([4, 2], i32)
@@ -34,6 +35,7 @@ def build_transpose(i32) -> func.FuncOp:
         func.ReturnOp([op.result])
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -51,6 +53,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

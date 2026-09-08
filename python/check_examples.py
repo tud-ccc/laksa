@@ -36,7 +36,9 @@ def extract_last_module(text: str) -> str:
     return "\n".join(lines[start:])
 
 
-def check_one(laksa_opt: str, python: str, py_file: Path, mlir_file: Path) -> str | None:
+def check_one(
+    laksa_opt: str, python: str, py_file: Path, mlir_file: Path
+) -> str | None:
     """Returns an error message on failure, None on success."""
     if not mlir_file.exists():
         return f"no matching test file {mlir_file}"

@@ -15,6 +15,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import dfg
 from mlir_laksa.passmanager import PassManager
 
+
 def build_scalar_operator(name: str, elem_type) -> dfg.OperatorOp:
     operator_op = dfg.OperatorOp(
         name, TypeAttr.get(FunctionType.get([elem_type], [elem_type, elem_type]))
@@ -25,6 +26,7 @@ def build_scalar_operator(name: str, elem_type) -> dfg.OperatorOp:
         dfg.OutputOp([in_arg, in_arg])
     return operator_op
 
+
 def build_shaped_operator(name: str, shaped_type) -> dfg.OperatorOp:
     operator_op = dfg.OperatorOp(
         name, TypeAttr.get(FunctionType.get([shaped_type], [shaped_type]))
@@ -34,6 +36,7 @@ def build_shaped_operator(name: str, shaped_type) -> dfg.OperatorOp:
         (in_arg,) = block.arguments
         dfg.OutputOp([in_arg])
     return operator_op
+
 
 def main() -> None:
     ctx = Context()
@@ -56,6 +59,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

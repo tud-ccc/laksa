@@ -24,6 +24,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import affine, arith, dfg, emithls, memref
 from mlir_laksa.passmanager import PassManager
 
+
 def build_pad(i8) -> dfg.ProcessOp:
     """pad style: materializes a padded alloc via subview+copy, then pushes
     it whole. Untouched by the pass apart from its port shapes."""
@@ -54,6 +55,7 @@ def build_pad(i8) -> dfg.ProcessOp:
             memref.CopyOp(token.result, subview)
             dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
+
 
 def build_conv(i8, i32) -> dfg.ProcessOp:
     """accumulate style: a sliding-window reduction into an `accu_at` alloc,
@@ -90,9 +92,7 @@ def build_conv(i8, i32) -> dfg.ProcessOp:
         loop_block = loop_op.body.blocks.append()
         with InsertionPoint(loop_block):
             token = dfg.PullAsMemRefOp(MemRefType.get(padded_shape, i8), in_port)
-            alloc = memref.AllocOp(
-                MemRefType.get(out_shape, i32), [], [], alignment=64
-            )
+            alloc = memref.AllocOp(MemRefType.get(out_shape, i32), [], [], alignment=64)
             alloc.operation.attributes["accu_at"] = ArrayAttr.get(
                 [IntegerAttr.get(i32, 0), IntegerAttr.get(i32, 3)]
             )
@@ -137,12 +137,8 @@ def build_conv(i8, i32) -> dfg.ProcessOp:
                                                 identity4,
                                             )
                                             ext = arith.ExtSIOp(i32, v.result)
-                                            sub = arith.SubIOp(
-                                                ext.result, c_zp.result
-                                            )
-                                            mul = arith.MulIOp(
-                                                sub.result, c_mul.result
-                                            )
+                                            sub = arith.SubIOp(ext.result, c_zp.result)
+                                            mul = arith.MulIOp(sub.result, c_mul.result)
                                             emithls.HelperAccumulateOp(
                                                 alloc.result,
                                                 emithls.FusedOperator.add,
@@ -159,6 +155,7 @@ def build_conv(i8, i32) -> dfg.ProcessOp:
                 affine.AffineYieldOp([])
             dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
+
 
 def build_relu(i32, i8) -> dfg.ProcessOp:
     """parallel style: elementwise affine.for/load/store into a plain
@@ -236,6 +233,7 @@ def build_relu(i32, i8) -> dfg.ProcessOp:
             dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
 
+
 def build_kernel_region(i8, i32) -> dfg.RegionOp:
     shape = [1, 30, 30, 8]
     output_type = dfg.OutputType.get(element_type=i8, shape=shape)
@@ -261,6 +259,7 @@ def build_kernel_region(i8, i32) -> dfg.RegionOp:
         dfg.InstantiateOp("conv", [padded_out], [conv_in])
         dfg.InstantiateOp("relu", [conv_out], [out0])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -309,6 +308,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

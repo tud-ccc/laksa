@@ -8,7 +8,14 @@
 #include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 #include "laksa-mlir/Conversion/ConvertToEmitHLS/ConvertToEmitHLS.h"
 #include "laksa-mlir/Conversion/Passes.h"
+#include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Pass.h"
+#include "mlir/CAPI/Support.h"
+#include "mlir/Target/Cpp/CppEmitter.h"
+
+#include "llvm/Support/raw_ostream.h"
+
+#include <string>
 
 // Must include the declarations as they carry important visibility attributes.
 #include "laksa-mlir/Conversion/Passes.capi.h.inc"
@@ -36,6 +43,26 @@ void mlirConversionAddConvertToEmitHLSPasses(
         *unwrap(passManager),
         availableBRAM,
         availableDSP);
+}
+
+MlirLogicalResult mlirTranslateEmitCToCpp(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData,
+    bool declareVariablesAtTop,
+    MlirStringRef fileId)
+{
+    std::string buf;
+    llvm::raw_string_ostream os(buf);
+    if (failed(
+            emitc::translateToCpp(
+                unwrap(op),
+                os,
+                declareVariablesAtTop,
+                unwrap(fileId))))
+        return mlirLogicalResultFailure();
+    callback(mlirStringRefCreate(buf.data(), buf.size()), userData);
+    return mlirLogicalResultSuccess();
 }
 
 #ifdef __cplusplus

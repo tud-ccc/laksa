@@ -12,6 +12,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import arith, func, linalg, linalg_ext, tensor
 from mlir_laksa.passmanager import PassManager
 
+
 def build_map_fill(i8) -> func.FuncOp:
     result_type = RankedTensorType.get([1, 32, 32, 8], i8)
     func_op = func.FuncOp("map_fill", ([], [result_type]))
@@ -25,6 +26,7 @@ def build_map_fill(i8) -> func.FuncOp:
             linalg.YieldOp([zero.result])
         func.ReturnOp([map_op.result[0]])
     return func_op
+
 
 def build_map_elementwise(i32) -> func.FuncOp:
     tensor64 = RankedTensorType.get([64], i32)
@@ -41,6 +43,7 @@ def build_map_elementwise(i32) -> func.FuncOp:
             linalg.YieldOp([v.result])
         func.ReturnOp([map_op.result[0]])
     return func_op
+
 
 def main() -> None:
     ctx = Context()
@@ -61,6 +64,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

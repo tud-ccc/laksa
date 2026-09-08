@@ -5,9 +5,13 @@
 
 #include "laksa-mlir-c/Conversion.h"
 
+#include "mlir-c/IR.h"
 #include "mlir-c/Pass.h"
+#include "mlir-c/Support.h"
 #include "mlir/Bindings/Python/Nanobind.h"
 #include "mlir/Bindings/Python/NanobindAdaptors.h"
+
+#include <string>
 
 namespace nb = nanobind;
 
@@ -82,4 +86,28 @@ NB_MODULE(_mlirConversion, m)
         nb::arg("pm"),
         nb::arg("available_bram") = 288,
         nb::arg("available_dsp") = 1248);
+
+    m.def(
+        "translate_emitc_to_cpp",
+        [](MlirOperation op,
+           bool declareVariablesAtTop,
+           const std::string &fileId) -> std::string {
+            std::string result;
+            MlirLogicalResult res = mlirTranslateEmitCToCpp(
+                op,
+                [](MlirStringRef str, void* userData) {
+                    static_cast<std::string*>(userData)->append(
+                        str.data,
+                        str.length);
+                },
+                &result,
+                declareVariablesAtTop,
+                mlirStringRefCreate(fileId.data(), fileId.size()));
+            if (mlirLogicalResultIsFailure(res))
+                throw nb::value_error("Translation to C++ failed.");
+            return result;
+        },
+        nb::arg("op"),
+        nb::arg("declare_variables_at_top") = false,
+        nb::arg("file_id") = "");
 }

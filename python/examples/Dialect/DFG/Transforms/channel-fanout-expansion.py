@@ -13,6 +13,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import dfg
 from mlir_laksa.passmanager import PassManager
 
+
 def build_producer(name: str, i32, i64) -> dfg.OperatorOp:
     operator_op = dfg.OperatorOp(
         name, TypeAttr.get(FunctionType.get([i32, i64], [i32, i64]))
@@ -23,14 +24,14 @@ def build_producer(name: str, i32, i64) -> dfg.OperatorOp:
         dfg.OutputOp([in0, in1])
     return operator_op
 
+
 def build_consumer(name: str, elem_type) -> dfg.OperatorOp:
-    operator_op = dfg.OperatorOp(
-        name, TypeAttr.get(FunctionType.get([elem_type], []))
-    )
+    operator_op = dfg.OperatorOp(name, TypeAttr.get(FunctionType.get([elem_type], [])))
     block = operator_op.body.blocks.append(elem_type)
     with InsertionPoint(block):
         dfg.OutputOp([])
     return operator_op
+
 
 def build_fanout_region(
     name: str,
@@ -54,13 +55,12 @@ def build_fanout_region(
         single_input, single_output = dfg.ChannelOp(
             dfg.InputType.get(element_type=i64), output_i64, i64
         ).results
-        dfg.InstantiateOp(
-            producer_callee, [src0, src1], [fanout_input, single_input]
-        )
+        dfg.InstantiateOp(producer_callee, [src0, src1], [fanout_input, single_input])
         dfg.InstantiateOp(consumer_i32_callee, [fanout_output], [])
         dfg.InstantiateOp(consumer_i32_callee, [fanout_output], [])
         dfg.InstantiateOp(consumer_i64_callee, [single_output], [])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -94,6 +94,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

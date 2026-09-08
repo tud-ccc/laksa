@@ -13,6 +13,7 @@ from mlir_laksa.ir import (
 )
 from mlir_laksa.dialects import emithls
 
+
 def build_basic_vars(i32, ptr_type) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "basic_vars", TypeAttr.get(FunctionType.get([ptr_type], []))
@@ -34,6 +35,7 @@ def build_basic_vars(i32, ptr_type) -> emithls.FuncOp:
             emithls.ArrayPointerWriteOp(val, arg0, [i])
     return func_op
 
+
 def build_array_ops(i32, array_type) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "array_ops", TypeAttr.get(FunctionType.get([array_type], []))
@@ -48,6 +50,7 @@ def build_array_ops(i32, array_type) -> emithls.FuncOp:
             val = emithls.ArrayReadOp(arg0, [i])
             emithls.ArrayWriteOp(val, arg0, [i])
     return func_op
+
 
 def build_stream_ops(i32, stream_type, array_of_stream_type) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
@@ -67,6 +70,7 @@ def build_stream_ops(i32, stream_type, array_of_stream_type) -> emithls.FuncOp:
         emithls.PragmaStreamOp(s.variable, depth=8)
     return func_op
 
+
 def build_pragma_ops(array_type) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "pragma_ops", TypeAttr.get(FunctionType.get([array_type], []))
@@ -78,6 +82,7 @@ def build_pragma_ops(array_type) -> emithls.FuncOp:
         emithls.PragmaArrayPartitionOp(arg0, part_type=0, part_factor=2, part_dim=1)
         emithls.PragmaBindStorageOp(arg0, storage_type=2, storage_impl=0)
     return func_op
+
 
 def main() -> None:
     with Context(), Location.unknown():
@@ -100,6 +105,7 @@ def main() -> None:
             build_pragma_ops(array16_type)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

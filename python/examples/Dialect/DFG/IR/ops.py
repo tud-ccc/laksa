@@ -14,6 +14,7 @@ from mlir_laksa.ir import (
 )
 from mlir_laksa.dialects import arith, dfg
 
+
 def build_basic_process(name: str, output_type, input_type, elem_type) -> dfg.ProcessOp:
     process_op = dfg.ProcessOp(
         name, TypeAttr.get(FunctionType.get([output_type], [input_type]))
@@ -27,6 +28,7 @@ def build_basic_process(name: str, output_type, input_type, elem_type) -> dfg.Pr
             token = dfg.PullOp(elem_type, in_port, [])
             dfg.PushOp(token.result, out_port, [])
     return process_op
+
 
 def build_shaped_process(
     name: str, output_type, input_type, elem_type, shape, index_type
@@ -46,6 +48,7 @@ def build_shaped_process(
         dfg.PushOp(elem.result, out_port, [idx.result])
     return process_op
 
+
 def build_basic_operator(name: str, elem_type) -> dfg.OperatorOp:
     operator_op = dfg.OperatorOp(
         name, TypeAttr.get(FunctionType.get([elem_type], [elem_type]))
@@ -55,6 +58,7 @@ def build_basic_operator(name: str, elem_type) -> dfg.OperatorOp:
         (in_arg,) = block.arguments
         dfg.OutputOp([in_arg])
     return operator_op
+
 
 def build_basic_region(
     name: str, output_type, input_type, elem_type, callee: str
@@ -72,6 +76,7 @@ def build_basic_region(
         dfg.InstantiateOp(callee, [channel_output], [out_port])
     return region_op
 
+
 def build_offloaded_region(
     name: str, output_type, input_type, callee: str
 ) -> dfg.RegionOp:
@@ -86,8 +91,14 @@ def build_offloaded_region(
         )
     return region_op
 
+
 def build_embed_region(
-    name: str, output_type, input_type, elem_type, process_callee: str, region_callee: str
+    name: str,
+    output_type,
+    input_type,
+    elem_type,
+    process_callee: str,
+    region_callee: str,
 ) -> dfg.RegionOp:
     region_op = dfg.RegionOp(name, TypeAttr.get(FunctionType.get([], [input_type])))
     block = region_op.body.blocks.append(input_type)
@@ -99,6 +110,7 @@ def build_embed_region(
         dfg.InstantiateOp(process_callee, [channel_output], [out_port])
         dfg.EmbedOp(region_callee, [channel_output], [channel_input])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -143,6 +155,7 @@ def main() -> None:
             )
 
     print(module)
+
 
 if __name__ == "__main__":
     main()

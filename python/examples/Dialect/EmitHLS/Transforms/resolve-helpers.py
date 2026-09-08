@@ -17,10 +17,10 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import emithls, memref
 from mlir_laksa.passmanager import PassManager
 
+
 def const(ty, value):
-    return emithls.VariableOp(
-        ty, init_number=IntegerAttr.get(ty, value), is_const=True
-    )
+    return emithls.VariableOp(ty, init_number=IntegerAttr.get(ty, value), is_const=True)
+
 
 def build_conv_2d(i8, i32, index_ty, arr8_stream_i8, arr8_stream_i32) -> emithls.FuncOp:
     shape = [8]
@@ -73,12 +73,16 @@ def build_conv_2d(i8, i32, index_ty, arr8_stream_i8, arr8_stream_i32) -> emithls
                 with InsertionPoint(expr_block):
                     a0 = emithls.ArithAddOp(idx0, c_neg2.result)
                     cmp0 = emithls.ArithCmpOp(
-                        emithls.CmpPredicate.ge, a0.result, c0_index.result,
+                        emithls.CmpPredicate.ge,
+                        a0.result,
+                        c0_index.result,
                         results=[i1],
                     )
                     a1 = emithls.ArithAddOp(idx1, c_neg2.result)
                     cmp1 = emithls.ArithCmpOp(
-                        emithls.CmpPredicate.ge, a1.result, c0_index.result,
+                        emithls.CmpPredicate.ge,
+                        a1.result,
+                        c0_index.result,
                         results=[i1],
                     )
                     and_op = emithls.ArithLogicalAndOp([cmp0.result, cmp1.result])
@@ -135,6 +139,7 @@ def build_conv_2d(i8, i32, index_ty, arr8_stream_i8, arr8_stream_i32) -> emithls
                             load0 = memref.LoadOp(alloc0.result, [idx6])
                             emithls.StreamWriteOp(load0.result, arg1, [idx6])
     return func_op
+
 
 def build_matmul(
     i8, i32, index_ty, arr128_stream_i8, arr256_stream_i32
@@ -202,6 +207,7 @@ def build_matmul(
                     emithls.StreamWriteOp(load0.result, arg1, [idx3])
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -214,9 +220,7 @@ def main() -> None:
             stream_i8 = emithls.StreamType.get(element_type=i8)
             stream_i32 = emithls.StreamType.get(element_type=i32)
             arr8_stream_i8 = emithls.ArrayType.get(element_type=stream_i8, shape=[8])
-            arr8_stream_i32 = emithls.ArrayType.get(
-                element_type=stream_i32, shape=[8]
-            )
+            arr8_stream_i32 = emithls.ArrayType.get(element_type=stream_i32, shape=[8])
             arr128_stream_i8 = emithls.ArrayType.get(
                 element_type=stream_i8, shape=[128]
             )
@@ -236,6 +240,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

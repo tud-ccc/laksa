@@ -15,6 +15,7 @@ from mlir_laksa.dialects import emithls, index
 import mlir_laksa.conversion as conversion
 from mlir_laksa.passmanager import PassManager
 
+
 def build_index(i32) -> emithls.FuncOp:
     func_op = emithls.FuncOp("index", TypeAttr.get(FunctionType.get([], [])))
     block = func_op.body.blocks.append()
@@ -49,6 +50,7 @@ def build_index(i32) -> emithls.FuncOp:
         index.CmpOp(index.IndexCmpPredicate.UGE, idx, zero.result)
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -66,6 +68,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

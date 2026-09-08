@@ -15,6 +15,7 @@ from mlir_laksa.dialects import arith, emithls
 import mlir_laksa.conversion as conversion
 from mlir_laksa.passmanager import PassManager
 
+
 def build_arith(i16, i32, i64) -> emithls.FuncOp:
     func_op = emithls.FuncOp("arith", TypeAttr.get(FunctionType.get([], [])))
     block = func_op.body.blocks.append()
@@ -54,6 +55,7 @@ def build_arith(i16, i32, i64) -> emithls.FuncOp:
         arith.SelectOp(slt.result, var, zero.result)
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -73,6 +75,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()
