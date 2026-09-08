@@ -41,15 +41,6 @@ else
     GUROBI_MAJOR_MINOR="${GUROBI_VERSION%.*}"
     GUROBI_HOME_NAME="gurobi${GUROBI_VERSION//./}"
 
-    PY_DEPS=(
-        'nanobind>=2.9,<3.0'
-        'pybind11>=2.10'
-        'PyYAML>=5.4.0,<=6.0.1'
-        'typing_extensions>=4.12.2'
-        'numpy>=2.1.0,<=2.1.2'
-        'ml_dtypes>=0.5.0,<=0.6.0'
-    )
-
     SUDO=""
     if [ "$(id -u)" -ne 0 ]; then
         SUDO="sudo"
@@ -96,7 +87,9 @@ else
     if [ ! -d "$VENV_DIR" ]; then
         log "Setting up Python venv at $VENV_DIR"
         uv venv "$VENV_DIR" -p 3.12
-        uv pip install "${PY_DEPS[@]}" -p "$VENV_DIR/bin/python"
+        uv pip install -p "$VENV_DIR/bin/python" \
+            -r "$ROOT/python/requirements.txt" \
+            -r "$ROOT/docs/requirements.txt"
     fi
 
     GUROBI_DIR="${GUROBI_DIR:-}"

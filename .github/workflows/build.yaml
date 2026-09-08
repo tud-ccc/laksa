@@ -2,7 +2,7 @@ name: Build LAKSA
 
 on:
   push:
-    branches: [main]
+    branches: [cps-tutorial]
   pull_request:
   workflow_dispatch:
 
@@ -66,18 +66,11 @@ jobs:
 
       - name: Install Python deps
         run: |
-          pip install --break-system-packages \
-            'nanobind>=2.9,<3.0' \
-            'pybind11>=2.10' \
-            'PyYAML>=5.4.0,<=6.0.1' \
-            'typing_extensions>=4.12.2' \
-            'numpy>=2.1.0,<=2.1.2' \
-            'ml_dtypes>=0.5.0,<=0.6.0'
           pip install --break-system-packages -r python/requirements.txt
+          pip install --break-system-packages -r docs/requirements.txt
 
       - name: Configure
         run: |
-          PYBIND11_DIR=$(python3 -m pybind11 --cmakedir)
           NANOBIND_DIR=$(python3 -c "import nanobind; print(nanobind.cmake_dir())")
           cmake -S . -B build -G Ninja \
             -DCMAKE_C_COMPILER=clang \
@@ -89,7 +82,6 @@ jobs:
             -DGUROBI_DIR=/opt/gurobi1203/${{ matrix.gurobi_platform }} \
             -DLLVM_USE_LINKER=mold \
             -DLLVM_EXTERNAL_LIT=/opt/llvm-22/build/bin/llvm-lit \
-            -Dpybind11_DIR="$PYBIND11_DIR" \
             -Dnanobind_DIR="$NANOBIND_DIR" \
             -DPython3_EXECUTABLE=$(which python3) \
             -DPython_EXECUTABLE=$(which python3) \

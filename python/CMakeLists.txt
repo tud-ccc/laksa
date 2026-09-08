@@ -176,7 +176,6 @@ else()
 endif()
 
 add_custom_target(install-python-package
-    COMMAND ${_pip_cmd} -r ${CMAKE_SOURCE_DIR}/python/requirements.txt
     COMMAND ${_pip_cmd}
         --no-build-isolation
         -e ${CMAKE_SOURCE_DIR}

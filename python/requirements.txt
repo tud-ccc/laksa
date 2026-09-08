@@ -3,10 +3,4 @@ PyYAML>=5.4.0, <=6.0.3
 typing_extensions>=4.12.2
 numpy>=1.19.5, <=2.1.2
 ml_dtypes>=0.1.0, <=0.6.0
-
-breathe
-exhale
-myst-parser
 scikit-build-core
-sphinx
-sphinx-rtd-theme
