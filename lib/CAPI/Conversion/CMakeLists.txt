@@ -8,5 +8,6 @@ add_mlir_upstream_c_api_library(MLIRCAPILAKSAConversion
 
     LINK_LIBS PUBLIC
         MLIRCAPIIR
+        MLIRTargetCpp
         ${conversion_libs}
 )
