@@ -49,21 +49,6 @@ find_package(GUROBI REQUIRED)
 message(STATUS "GUROBI include: ${GUROBI_INCLUDE_DIRS}")
 message(STATUS "GUROBI core lib: ${GUROBI_LIBRARY}")
 message(STATUS "GUROBI c++  lib: ${GUROBI_CXX_LIBRARY}")
-if(NOT TARGET Gurobi::core)
-  add_library(Gurobi::core SHARED IMPORTED GLOBAL)
-  set_target_properties(Gurobi::core PROPERTIES
-    IMPORTED_LOCATION "${GUROBI_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${GUROBI_INCLUDE_DIRS}"
-  )
-endif()
-if(NOT TARGET Gurobi::cxx)
-  add_library(Gurobi::cxx STATIC IMPORTED GLOBAL)
-  set_target_properties(Gurobi::cxx PROPERTIES
-    IMPORTED_LOCATION "${GUROBI_CXX_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${GUROBI_INCLUDE_DIRS}"
-    INTERFACE_LINK_LIBRARIES Gurobi::core
-  )
-endif()
 
 # Load LLVM and MLIR CMake modules.
 list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
@@ -72,6 +57,7 @@ include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
 include(HandleLLVMOptions)
+include(LAKSAInstall)
 
 # Preserve link-time library paths in installed binaries so extension modules
 # can find LLVM/MLIR shared libraries without requiring LD_LIBRARY_PATH.
@@ -112,3 +98,5 @@ if (MLIR_ENABLE_BINDINGS_PYTHON)
   mlir_configure_python_dev_packages()
   add_subdirectory(python)
 endif()
+
+laksa_install()

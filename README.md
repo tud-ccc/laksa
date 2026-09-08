@@ -65,6 +65,36 @@ To keep it somewhere else, point `GRB_LICENSE_FILE` at it before building:
 export GRB_LICENSE_FILE=/path/to/gurobi.lic
 ```
 
+## Installing
+
+```bash
+cmake --install build --prefix /where/you/want
+```
+
+This gives you `bin/` with the four tools, `include/` with the headers and the TableGen output merged into one tree, `lib/` with the static libraries, and `lib/cmake/laksa/` so that a downstream CMake project can do:
+
+```cmake
+find_package(LAKSA REQUIRED)
+target_link_libraries(my-tool PRIVATE LAKSA::DFGIR)
+target_include_directories(my-tool PRIVATE ${LAKSA_INCLUDE_DIRS} ${MLIR_INCLUDE_DIRS})
+```
+
+Pass `--component` to install one piece on its own: `LAKSATools`, `LAKSAHeaders`, `LAKSALibraries`, `LAKSADevelopment`, or `LAKSAPythonModules`.
+
+### The Python package
+
+The bindings are a `pip` package, built from **this repository**:
+
+```bash
+pip install /path/to/laksa
+```
+
+While working on the bindings themselves, `cmake --build build --target install-python-package` does an editable install instead, so edits to the `.py` sources under [`python/mlir_laksa/`](python/mlir_laksa) take effect without reinstalling.
+
+`cmake --install` is not a third way to do this, and nothing it writes is a `pip` source directory.
+It copies the package to `<prefix>/mlir_laksa`, which no interpreter looks in, as a staging copy for packagers to relocate.
+That path is what it is because `pip` sets the install prefix to the wheel's `platlib` directory, so the package has to sit at the root of the prefix.
+
 ## Run the tests
 
 The `.mlir` FileCheck test suite under [`test/`](test) is run with:

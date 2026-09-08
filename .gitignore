@@ -6,4 +6,5 @@
 .envrc
 
 build
+install
 dse.log
