@@ -24,17 +24,22 @@ if [ -n "${MLIR_DIR:-}" ] && [ -d "$MLIR_DIR" ]; then
         exit 1
     fi
 else
-    LLVM_TARBALL="${1:-${LLVM_TARBALL:-}}"
-    if [ -z "$LLVM_TARBALL" ] || [ ! -f "$LLVM_TARBALL" ]; then
-        echo "Usage: $0 <path-to-llvm-22.tar.zst>" >&2
-        echo "Download the prebuilt LLVM/MLIR tarball from this repo's GitHub Releases first." >&2
-        echo "(Skip the argument entirely when running inside 'nix develop'.)" >&2
-        exit 1
-    fi
+    case "$(uname -m)" in
+        x86_64)         LLVM_ASSET=llvm-22-amd64.tar.zst; GUROBI_PLATFORM=linux64 ;;
+        aarch64|arm64)  LLVM_ASSET=llvm-22-arm64.tar.zst; GUROBI_PLATFORM=armlinux64 ;;
+        *)
+            echo "ERROR: unsupported architecture $(uname -m)." >&2
+            exit 1
+            ;;
+    esac
+
+    LLVM_TARBALL="${1:-${LLVM_TARBALL:-$BUILD_DIR/$LLVM_ASSET}}"
+    LLVM_RELEASE_TAG="${LLVM_RELEASE_TAG:-llvm-mlir-22.1.7-py312-release-shared}"
+    LLVM_RELEASE_URL="${LLVM_RELEASE_URL:-https://github.com/tud-ccc/laksa/releases/download/$LLVM_RELEASE_TAG}"
 
     GUROBI_VERSION="${GUROBI_VERSION:-12.0.3}"
     GUROBI_MAJOR_MINOR="${GUROBI_VERSION%.*}"
-    GUROBI_HOME_NAME="gurobi$(tr -d '.' <<<"$GUROBI_MAJOR_MINOR")0"
+    GUROBI_HOME_NAME="gurobi${GUROBI_VERSION//./}"
 
     PY_DEPS=(
         'nanobind>=2.9,<3.0'
@@ -53,7 +58,7 @@ else
     log "Installing system packages"
     $SUDO apt-get update
     $SUDO apt-get install -y --no-install-recommends \
-        cmake ninja-build clang clang++ lld mold xz-utils zstd curl \
+        cmake ninja-build clang lld mold xz-utils zstd curl \
         python3-dev python3-venv portaudio19-dev build-essential doxygen
 
     if ! command -v uv >/dev/null 2>&1; then
@@ -62,10 +67,21 @@ else
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    LLVM_ROOT="$BUILD_DIR/$(tar --use-compress-program='zstd -d' -tf "$LLVM_TARBALL" | head -1 | cut -d/ -f1)"
+    LLVM_ROOT="$BUILD_DIR/llvm-22"
     if [ -x "$LLVM_ROOT/build/bin/mlir-opt" ]; then
         log "LLVM/MLIR already extracted at $LLVM_ROOT"
     else
+        if [ ! -f "$LLVM_TARBALL" ]; then
+            log "Downloading $LLVM_ASSET from $LLVM_RELEASE_TAG"
+            curl -fL --retry 3 --progress-bar \
+                "$LLVM_RELEASE_URL/$LLVM_ASSET" -o "$LLVM_TARBALL.part"
+            mv "$LLVM_TARBALL.part" "$LLVM_TARBALL"
+        fi
+
+        set +o pipefail
+        LLVM_ROOT="$BUILD_DIR/$(tar --use-compress-program='zstd -d' -tf "$LLVM_TARBALL" | head -1 | cut -d/ -f1)"
+        set -o pipefail
+
         log "Extracting LLVM/MLIR from $LLVM_TARBALL"
         tar --use-compress-program='zstd -d' -xf "$LLVM_TARBALL" -C "$BUILD_DIR"
         if [ ! -x "$LLVM_ROOT/build/bin/mlir-opt" ]; then
@@ -87,35 +103,29 @@ else
     if [ -n "$GUROBI_DIR" ] && [ -d "$GUROBI_DIR" ]; then
         log "Using existing Gurobi install at $GUROBI_DIR"
     else
-        GUROBI_DIR="$BUILD_DIR/$GUROBI_HOME_NAME/linux64"
+        GUROBI_DIR="$BUILD_DIR/$GUROBI_HOME_NAME/$GUROBI_PLATFORM"
         if [ -d "$GUROBI_DIR" ]; then
             log "Gurobi already installed at $GUROBI_DIR"
         else
-            log "Downloading and installing Gurobi $GUROBI_VERSION"
-            curl -L "https://packages.gurobi.com/${GUROBI_MAJOR_MINOR}/gurobi${GUROBI_VERSION}_linux64.tar.gz" \
+            log "Downloading and installing Gurobi $GUROBI_VERSION ($GUROBI_PLATFORM)"
+            curl -L "https://packages.gurobi.com/${GUROBI_MAJOR_MINOR}/gurobi${GUROBI_VERSION}_${GUROBI_PLATFORM}.tar.gz" \
                 -o /tmp/gurobi.tar.gz
             tar xzf /tmp/gurobi.tar.gz -C "$BUILD_DIR"
             rm /tmp/gurobi.tar.gz
         fi
+        if [ ! -f "$GUROBI_DIR/include/gurobi_c.h" ]; then
+            echo "ERROR: expected Gurobi headers at $GUROBI_DIR/include." >&2
+            exit 1
+        fi
     fi
 fi
 
-if [ ! -f "$HOME/.gurobi/gurobi.lic" ]; then
-    if [ -n "${WLSACCESSID:-}" ] && [ -n "${WLSSECRET:-}" ] && [ -n "${LICENSEID:-}" ]; then
-        log "Writing Gurobi WLS license to \$HOME/.gurobi/gurobi.lic"
-        mkdir -p "$HOME/.gurobi"
-        cat >"$HOME/.gurobi/gurobi.lic" <<EOF
-WLSACCESSID=${WLSACCESSID}
-WLSSECRET=${WLSSECRET}
-LICENSEID=${LICENSEID}
-EOF
-    else
-        echo
-        echo "WARNING: no Gurobi license found at \$HOME/.gurobi/gurobi.lic, and" >&2
-        echo "WLSACCESSID/WLSSECRET/LICENSEID are not set to generate one." >&2
-        echo "The build will still succeed, but anything using Gurobi will fail at runtime." >&2
-        echo
-    fi
+GRB_LICENSE_FILE="${GRB_LICENSE_FILE:-$HOME/.gurobi/gurobi.lic}"
+if [ ! -f "$GRB_LICENSE_FILE" ]; then
+    echo
+    echo "WARNING: no Gurobi license found at $GRB_LICENSE_FILE." >&2
+    echo "The build will still succeed, but anything using Gurobi will fail at runtime." >&2
+    echo
 fi
 
 log "Configuring $(basename "$ROOT")"

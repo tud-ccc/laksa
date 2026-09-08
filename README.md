@@ -27,7 +27,7 @@ It exposes `/dev/laksa`, a character device through which userspace programs man
 
 ## Development Environment (Nix)
 
-This repo ships a [Nix flake](flake.nix) that provides a complete dev shell with LLVM/MLIR, `cmake`, `ninja`, `mold`, `doxygen`, `gurobi`, and the Python toolchain already on `PATH`, with `LLVM_DIR`, `MLIR_DIR`, `LLVM_EXTERNAL_LIT`, `PYTHONPATH`, and `GUROBI_HOME` set automatically:
+This repo ships a [Nix flake](flake.nix) that provides a complete dev shell with LLVM/MLIR, `cmake`, `ninja`, `mold`, `doxygen`, `gurobi`, and the Python toolchain already on `PATH`, with `LLVM_DIR`, `MLIR_DIR`, `LLVM_EXTERNAL_LIT`, `PYTHONPATH`, `GUROBI_HOME`, and `GRB_LICENSE_FILE` set automatically:
 
 ```bash
 nix develop
@@ -43,17 +43,27 @@ bash build.sh
 ## Build on Ubuntu 24.04 (no Nix)
 
 Built and tested against [`llvm-22.1.7`](https://github.com/llvm/llvm-project/tree/llvmorg-22.1.7).
-Outside the Nix shell, [`build.sh`](build.sh) also installs the system packages, downloads Gurobi, and sets up the Python venv:
+Both `x86_64` and `aarch64` are supported; [`build.sh`](build.sh) reads `uname -m` and picks the matching Gurobi build (`linux64` / `armlinux64`) itself.
 
-1. Download `llvm-22.tar.zst` from this repo's [Releases](https://github.com/tud-ccc/laksa/releases) page based on your own architecture.
-2. Run the script, pointing it at the downloaded file:
+Outside the Nix shell, [`build.sh`](build.sh) installs the system packages, fetches LLVM/MLIR and Gurobi, and sets up the Python venv, so it needs no arguments here either:
 
-   ```bash
-   bash build.sh /path/to/llvm-22.tar.zst
-   ```
+```bash
+bash build.sh
+```
 
-A Gurobi license is required either way.
-Either export `WLSACCESSID`, `WLSSECRET`, and `LICENSEID` before running the script (it writes `$HOME/.gurobi/gurobi.lic` for you), or place a license file there yourself.
+The prebuilt LLVM/MLIR tarball is about 700 MB and lands in `build/`, so the first run takes a while.
+
+## Gurobi license
+
+A license is required however you build, and nothing here creates one for you.
+`build.sh` only checks that the license file exists and warns if it does not; the build still succeeds without it, but anything using Gurobi fails at runtime.
+
+Put your license at `$HOME/.gurobi/gurobi.lic`, which is where both the Nix shell and `build.sh` look by default.
+To keep it somewhere else, point `GRB_LICENSE_FILE` at it before building:
+
+```bash
+export GRB_LICENSE_FILE=/path/to/gurobi.lic
+```
 
 ## Run the tests
 
