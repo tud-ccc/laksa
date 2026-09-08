@@ -28,7 +28,8 @@
             mlirPkg
             pkgs.doxygen
             pkgs.gurobi
-            pkgs.zlib pkgs.libxml2 
+            pkgs.zlib pkgs.libxml2
+            pkgs.docker-client pkgs.docker-buildx
           ];
           shellHook = ''
             export LLVM_DIR="${mlirPkg}/lib/cmake/llvm"
@@ -41,6 +42,7 @@
               ${pythonEnv}/bin/python3 -m venv .venv --system-site-packages
             fi
             source .venv/bin/activate
+            python -m pip install --upgrade pip
           '';
         };
       }
