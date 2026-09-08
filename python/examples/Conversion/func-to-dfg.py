@@ -13,6 +13,7 @@ from mlir_laksa.dialects import func
 import mlir_laksa.conversion as conversion
 from mlir_laksa.passmanager import PassManager
 
+
 def build_stream(i32, tensor2) -> func.FuncOp:
     func_op = func.FuncOp("stream", ([i32, tensor2], [i32, tensor2]))
     block = func_op.add_entry_block()
@@ -20,6 +21,7 @@ def build_stream(i32, tensor2) -> func.FuncOp:
         arg0, arg1 = block.arguments
         func.ReturnOp([arg0, arg1])
     return func_op
+
 
 def build_call(i32, tensor2) -> func.FuncOp:
     func_op = func.FuncOp("call", ([i32, tensor2], [i32, tensor2]))
@@ -32,6 +34,7 @@ def build_call(i32, tensor2) -> func.FuncOp:
         )
         func.ReturnOp([call1.results[0], call1.results[1]])
     return func_op
+
 
 def main() -> None:
     ctx = Context()
@@ -52,6 +55,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

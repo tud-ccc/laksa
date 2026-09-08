@@ -16,14 +16,12 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import emithls
 from mlir_laksa.passmanager import PassManager
 
-def const(ty, value):
-    return emithls.VariableOp(
-        ty, init_number=IntegerAttr.get(ty, value), is_const=True
-    )
 
-def build_fold_compare(
-    i8, i1, index_ty, arr32_stream_i8
-) -> emithls.FuncOp:
+def const(ty, value):
+    return emithls.VariableOp(ty, init_number=IntegerAttr.get(ty, value), is_const=True)
+
+
+def build_fold_compare(i8, i1, index_ty, arr32_stream_i8) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "fold_compare",
         TypeAttr.get(FunctionType.get([arr32_stream_i8, arr32_stream_i8], [])),
@@ -89,6 +87,7 @@ def build_fold_compare(
                     emithls.StreamWriteOp(v.result, arg1, [idx0])
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -99,9 +98,7 @@ def main() -> None:
             i1 = IntegerType.get_signless(1)
             index_ty = IndexType.get()
             stream_i8 = emithls.StreamType.get(element_type=i8)
-            arr32_stream_i8 = emithls.ArrayType.get(
-                element_type=stream_i8, shape=[32]
-            )
+            arr32_stream_i8 = emithls.ArrayType.get(element_type=stream_i8, shape=[32])
 
             build_fold_compare(i8, i1, index_ty, arr32_stream_i8)
 
@@ -114,6 +111,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

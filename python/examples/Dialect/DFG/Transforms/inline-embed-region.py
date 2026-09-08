@@ -13,6 +13,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import arith, dfg
 from mlir_laksa.passmanager import PassManager
 
+
 def build_source_process(name: str, input_type, elem_type) -> dfg.ProcessOp:
     process_op = dfg.ProcessOp(name, TypeAttr.get(FunctionType.get([], [input_type])))
     block = process_op.body.blocks.append(input_type)
@@ -21,6 +22,7 @@ def build_source_process(name: str, input_type, elem_type) -> dfg.ProcessOp:
         zero = arith.ConstantOp(elem_type, 0)
         dfg.PushOp(zero.result, out_port, [])
     return process_op
+
 
 def build_relay_process(name: str, output_type, input_type, elem_type) -> dfg.ProcessOp:
     process_op = dfg.ProcessOp(
@@ -32,6 +34,7 @@ def build_relay_process(name: str, output_type, input_type, elem_type) -> dfg.Pr
         token = dfg.PullOp(elem_type, in_port, [])
         dfg.PushOp(token.result, out_port, [])
     return process_op
+
 
 def build_child_region(
     name: str, output_type, input_type, elem_type, source_callee: str, relay_callee: str
@@ -47,6 +50,7 @@ def build_child_region(
         dfg.InstantiateOp(relay_callee, [channel_output], [out_port])
     return region_op
 
+
 def build_parent_region(
     name: str, output_type, input_type, relay_callee: str, child_callee: str
 ) -> dfg.RegionOp:
@@ -60,6 +64,7 @@ def build_parent_region(
         dfg.EmbedOp(child_callee, [], [out0])
     return region_op
 
+
 def build_standalone_region(name: str, input_type, child_callee: str) -> dfg.RegionOp:
     region_op = dfg.RegionOp(name, TypeAttr.get(FunctionType.get([], [input_type])))
     block = region_op.body.blocks.append(input_type)
@@ -67,6 +72,7 @@ def build_standalone_region(name: str, input_type, child_callee: str) -> dfg.Reg
         (out_port,) = block.arguments
         dfg.EmbedOp(child_callee, [], [out_port])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -84,9 +90,7 @@ def main() -> None:
             build_child_region(
                 "child", scalar_output, scalar_input, i32, "source", "relay"
             )
-            build_parent_region(
-                "parent", scalar_output, scalar_input, "relay", "child"
-            )
+            build_parent_region("parent", scalar_output, scalar_input, "relay", "child")
             build_standalone_region("standalone", scalar_input, "child")
 
         print(module)
@@ -97,6 +101,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

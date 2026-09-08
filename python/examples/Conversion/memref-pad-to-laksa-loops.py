@@ -16,6 +16,7 @@ from mlir_laksa.dialects import builtin, dfg, memref
 import mlir_laksa.conversion as conversion
 from mlir_laksa.passmanager import PassManager
 
+
 def build_main_node_2(i8) -> dfg.ProcessOp:
     """memref-token port: the filler is a small memref.alloc carrying the
     `fill_with` attribute, to be pushed via dfg.push_memref in the else
@@ -56,6 +57,7 @@ def build_main_node_2(i8) -> dfg.ProcessOp:
             dfg.PushMemRefOp(narrowed.results[0], out_port)
     return process_op
 
+
 def build_pad_scalar_i8(i8) -> dfg.ProcessOp:
     """scalar-token port: there's no buffer to stash `fill_with` on, so the
     pass materializes the filler as an arith.constant instead, pushed via
@@ -76,19 +78,16 @@ def build_pad_scalar_i8(i8) -> dfg.ProcessOp:
             widened = builtin.UnrealizedConversionCastOp(
                 [MemRefType.get([100], i8)], [token.token]
             )
-            alloc = memref.AllocOp(
-                MemRefType.get([104], i8), [], [], alignment=64
-            )
+            alloc = memref.AllocOp(MemRefType.get([104], i8), [], [], alignment=64)
             alloc.operation.attributes["fill_with"] = IntegerAttr.get(i8, -128)
 
             subview = memref.subview(alloc.result, [4], [100], [1])
             memref.CopyOp(widened.results[0], subview)
 
-            narrowed = builtin.UnrealizedConversionCastOp(
-                [i8], [alloc.result]
-            )
+            narrowed = builtin.UnrealizedConversionCastOp([i8], [alloc.result])
             dfg.PushOp(narrowed.results[0], out_port, [])
     return process_op
+
 
 def main() -> None:
     ctx = Context()
@@ -109,6 +108,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

@@ -30,6 +30,7 @@
             pkgs.gurobi
             pkgs.zlib pkgs.libxml2
             pkgs.docker-client pkgs.docker-buildx
+            pkgs.black
           ];
           shellHook = ''
             export LLVM_DIR="${mlirPkg}/lib/cmake/llvm"

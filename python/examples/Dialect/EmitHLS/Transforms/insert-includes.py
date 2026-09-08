@@ -14,6 +14,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import arith, emithls
 from mlir_laksa.passmanager import PassManager
 
+
 def build_triggers_stream_integer_algo(i32, stream_i32) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "triggers_stream_integer_algo",
@@ -27,6 +28,7 @@ def build_triggers_stream_integer_algo(i32, stream_i32) -> emithls.FuncOp:
         emithls.ArithMaxOp(v, v)
     return func_op
 
+
 def build_triggers_index(i32, array4_i32) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "triggers_index", TypeAttr.get(FunctionType.get([array4_i32], []))
@@ -37,6 +39,7 @@ def build_triggers_index(i32, array4_i32) -> emithls.FuncOp:
         idx = arith.ConstantOp(IndexType.get(), 0)
         emithls.ArrayReadOp(arg0, [idx.result])
     return func_op
+
 
 def main() -> None:
     ctx = Context()
@@ -59,6 +62,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

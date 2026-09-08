@@ -17,10 +17,10 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import emithls, memref
 from mlir_laksa.passmanager import PassManager
 
+
 def const(ty, value):
-    return emithls.VariableOp(
-        ty, init_number=IntegerAttr.get(ty, value), is_const=True
-    )
+    return emithls.VariableOp(ty, init_number=IntegerAttr.get(ty, value), is_const=True)
+
 
 def build_pass_through(
     i8, index_ty, arr128_stream_i8, arr256_stream_i32
@@ -54,9 +54,8 @@ def build_pass_through(
                 emithls.UpdateOp(var_array_0.variable, [idx1b], load0.result, [])
     return func_op
 
-def build_head_toe(
-    i8, index_ty, arr8_stream_i8, arr8_stream_i32
-) -> emithls.FuncOp:
+
+def build_head_toe(i8, index_ty, arr8_stream_i8, arr8_stream_i32) -> emithls.FuncOp:
     win_type = emithls.ArrayType.get(element_type=i8, shape=[8, 3, 3])
     func_op = emithls.FuncOp(
         "head_toe",
@@ -143,6 +142,7 @@ def build_head_toe(
                     )
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -161,9 +161,7 @@ def main() -> None:
                 element_type=stream_i32, shape=[256]
             )
             arr8_stream_i8 = emithls.ArrayType.get(element_type=stream_i8, shape=[8])
-            arr8_stream_i32 = emithls.ArrayType.get(
-                element_type=stream_i32, shape=[8]
-            )
+            arr8_stream_i32 = emithls.ArrayType.get(element_type=stream_i32, shape=[8])
 
             build_pass_through(i8, index_ty, arr128_stream_i8, arr256_stream_i32)
             build_head_toe(i8, index_ty, arr8_stream_i8, arr8_stream_i32)
@@ -177,6 +175,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

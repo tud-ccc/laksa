@@ -14,7 +14,10 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import dfg
 from mlir_laksa.passmanager import PassManager
 
-def build_identity_process(name: str, output_type, input_type, elem_type, shape) -> dfg.ProcessOp:
+
+def build_identity_process(
+    name: str, output_type, input_type, elem_type, shape
+) -> dfg.ProcessOp:
     process_op = dfg.ProcessOp(
         name, TypeAttr.get(FunctionType.get([output_type], [input_type]))
     )
@@ -25,7 +28,10 @@ def build_identity_process(name: str, output_type, input_type, elem_type, shape)
         dfg.PushTensorOp(tensor.result, out_port)
     return process_op
 
-def build_passthrough_process(name: str, output_type, input_type, elem_type) -> dfg.ProcessOp:
+
+def build_passthrough_process(
+    name: str, output_type, input_type, elem_type
+) -> dfg.ProcessOp:
     process_op = dfg.ProcessOp(
         name, TypeAttr.get(FunctionType.get([output_type], [input_type]))
     )
@@ -38,6 +44,7 @@ def build_passthrough_process(name: str, output_type, input_type, elem_type) -> 
             token = dfg.PullOp(elem_type, in_port, [])
             dfg.PushOp(token.result, out_port, [])
     return process_op
+
 
 def main() -> None:
     ctx = Context()
@@ -66,6 +73,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

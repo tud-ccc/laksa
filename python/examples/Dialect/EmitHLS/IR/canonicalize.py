@@ -15,11 +15,13 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import arith, emithls, func, memref
 from mlir_laksa.passmanager import PassManager
 
+
 def build_includes() -> None:
     emithls.IncludeOp("hls_stream")
     emithls.IncludeOp("cstdin")
     emithls.IncludeOp("ap_int")
     emithls.IncludeOp("ap_int")
+
 
 def build_pipeline_dedup(i8, memref_i32, memref_i8) -> func.FuncOp:
     func_op = func.FuncOp("pipeline_dedup", ([memref_i32, memref_i8], []))
@@ -43,6 +45,7 @@ def build_pipeline_dedup(i8, memref_i32, memref_i8) -> func.FuncOp:
         func.ReturnOp([])
     return func_op
 
+
 def build_stream_pipeline_dedup(i8, stream_i8, array_of_stream_i8) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "stream_pipeline_dedup",
@@ -64,12 +67,11 @@ def build_stream_pipeline_dedup(i8, stream_i8, array_of_stream_i8) -> emithls.Fu
                 emithls.StreamWriteOp(v, arg1, [i])
     return func_op
 
+
 def build_collapse_outer_loop(i8, array_of_stream_i8) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "collapse_outer_loop",
-        TypeAttr.get(
-            FunctionType.get([array_of_stream_i8, array_of_stream_i8], [])
-        ),
+        TypeAttr.get(FunctionType.get([array_of_stream_i8, array_of_stream_i8], [])),
     )
     block = func_op.body.blocks.append(array_of_stream_i8, array_of_stream_i8)
     with InsertionPoint(block):
@@ -88,6 +90,7 @@ def build_collapse_outer_loop(i8, array_of_stream_i8) -> emithls.FuncOp:
                     square = emithls.ArithMulOp(v.result, v.result)
                     emithls.StreamWriteOp(square.result, arg1, [idx2])
     return func_op
+
 
 def main() -> None:
     ctx = Context()
@@ -115,6 +118,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

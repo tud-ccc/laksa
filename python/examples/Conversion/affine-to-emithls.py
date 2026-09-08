@@ -22,6 +22,7 @@ from mlir_laksa.dialects import affine, arith, dfg, memref
 import mlir_laksa.conversion as conversion
 from mlir_laksa.passmanager import PassManager
 
+
 def build_affine(i8, port_type_in, port_type_out) -> dfg.ProcessOp:
     shape = [2, 4]
 
@@ -67,6 +68,7 @@ def build_affine(i8, port_type_in, port_type_out) -> dfg.ProcessOp:
                 affine.AffineYieldOp([])
     return process_op
 
+
 def build_global_const(i8, port_type_out) -> dfg.ProcessOp:
     """Mirrors @global_const: a memref.get_global-backed load should
     materialize as an emithls.variable instead of an unrealized cast."""
@@ -84,19 +86,16 @@ def build_global_const(i8, port_type_out) -> dfg.ProcessOp:
         loop_op = dfg.LoopOp([], [out_port])
         loop_block = loop_op.body.blocks.append()
         with InsertionPoint(loop_block):
-            const_buf = memref.GetGlobalOp(
-                MemRefType.get(shape, i8), "__constant_4xi8"
-            )
+            const_buf = memref.GetGlobalOp(MemRefType.get(shape, i8), "__constant_4xi8")
 
             for_op = affine.AffineForOp(0, shape[0])
             with InsertionPoint(for_op.body):
                 idx0 = for_op.induction_variable
-                val = affine.AffineLoadOp(
-                    i8, const_buf.result, [idx0], identity_map
-                )
+                val = affine.AffineLoadOp(i8, const_buf.result, [idx0], identity_map)
                 dfg.PushOp(val.result, out_port, [idx0])
                 affine.AffineYieldOp([])
     return process_op
+
 
 def build_top(port_type_in, port_type_out, global_port_type_out) -> dfg.RegionOp:
     region_op = dfg.RegionOp(
@@ -113,6 +112,7 @@ def build_top(port_type_in, port_type_out, global_port_type_out) -> dfg.RegionOp
         dfg.InstantiateOp("affine", [in_port], [out_port])
         dfg.InstantiateOp("global_const", [], [global_out_port])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -150,6 +150,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

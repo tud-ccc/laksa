@@ -15,17 +15,16 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import arith, dfg
 from mlir_laksa.passmanager import PassManager
 
+
 def build_dead_process(name: str) -> dfg.ProcessOp:
-    process_op = dfg.ProcessOp(
-        name, TypeAttr.get(FunctionType.get([],[]))
-    )
+    process_op = dfg.ProcessOp(name, TypeAttr.get(FunctionType.get([], [])))
     return process_op
 
+
 def build_dead_operator(name: str) -> dfg.OperatorOp:
-    operator_op = dfg.OperatorOp(
-        name, TypeAttr.get(FunctionType.get([],[]))
-    )
+    operator_op = dfg.OperatorOp(name, TypeAttr.get(FunctionType.get([], [])))
     return operator_op
+
 
 def build_relay_process(name: str, output_type, input_type, elem_type) -> dfg.ProcessOp:
     process_op = dfg.ProcessOp(
@@ -40,6 +39,7 @@ def build_relay_process(name: str, output_type, input_type, elem_type) -> dfg.Pr
             token = dfg.PullOp(elem_type, in_port, [])
             dfg.PushOp(token.result, out_port, [])
     return process_op
+
 
 def build_pipeline_region(
     name: str, output_type, input_type, elem_type, callee: str
@@ -60,6 +60,7 @@ def build_pipeline_region(
         dfg.InstantiateOp(callee, [channel_output_0], [channel_input_1])
         dfg.InstantiateOp(callee, [channel_output_1], [out_port])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -84,6 +85,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

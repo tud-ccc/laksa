@@ -20,10 +20,10 @@ from mlir_laksa.dialects import dfg, emithls, memref
 import mlir_laksa.conversion as conversion
 from mlir_laksa.passmanager import PassManager
 
+
 def const(ty, value):
-    return emithls.VariableOp(
-        ty, init_number=IntegerAttr.get(ty, value), is_const=True
-    )
+    return emithls.VariableOp(ty, init_number=IntegerAttr.get(ty, value), is_const=True)
+
 
 def build_pad(i8, index_ty) -> dfg.ProcessOp:
     shape = [8]
@@ -61,24 +61,32 @@ def build_pad(i8, index_ty) -> dfg.ProcessOp:
                     with InsertionPoint(expr_block):
                         a0 = emithls.ArithAddOp(idx0, c_neg1_index.result)
                         cmp0 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a0.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a0.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         m1 = emithls.ArithMulOp(idx0, c_neg1_index.result)
                         a1 = emithls.ArithAddOp(m1.result, c30_index.result)
                         cmp1 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a1.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a1.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         a2 = emithls.ArithAddOp(idx1, c_neg1_index.result)
                         cmp2 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a2.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a2.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         m2 = emithls.ArithMulOp(idx1, c_neg1_index.result)
                         a3 = emithls.ArithAddOp(m2.result, c30_index.result)
                         cmp3 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a3.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a3.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         and_op = emithls.ArithLogicalAndOp(
@@ -97,6 +105,7 @@ def build_pad(i8, index_ty) -> dfg.ProcessOp:
                     with InsertionPoint(else_block):
                         dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
+
 
 def build_conv(i8, i32, index_ty) -> dfg.ProcessOp:
     shape = [8]
@@ -146,12 +155,16 @@ def build_conv(i8, i32, index_ty) -> dfg.ProcessOp:
                     with InsertionPoint(expr_block):
                         a0 = emithls.ArithAddOp(idx0, c_neg2.result)
                         cmp0 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a0.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a0.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         a1 = emithls.ArithAddOp(idx1, c_neg2.result)
                         cmp1 = emithls.ArithCmpOp(
-                            emithls.CmpPredicate.ge, a1.result, c0_index.result,
+                            emithls.CmpPredicate.ge,
+                            a1.result,
+                            c0_index.result,
                             results=[i1],
                         )
                         and_op = emithls.ArithLogicalAndOp([cmp0.result, cmp1.result])
@@ -168,8 +181,8 @@ def build_conv(i8, i32, index_ty) -> dfg.ProcessOp:
                             alloc = memref.AllocOp(
                                 MemRefType.get(shape, i32), [], [], alignment=64
                             )
-                            alloc.operation.attributes["fill_with"] = (
-                                IntegerAttr.get(i32, 0)
+                            alloc.operation.attributes["fill_with"] = IntegerAttr.get(
+                                i32, 0
                             )
 
                             for3 = emithls.ForOp(0, 3, 1)
@@ -203,6 +216,7 @@ def build_conv(i8, i32, index_ty) -> dfg.ProcessOp:
                                         )
                             dfg.PushMemRefOp(alloc.result, out_port)
     return process_op
+
 
 def build_relu(i8, i32, i64, index_ty) -> dfg.ProcessOp:
     shape = [8]
@@ -289,6 +303,7 @@ def build_relu(i8, i32, i64, index_ty) -> dfg.ProcessOp:
                         dfg.PushOp(cast13.result, out_port, [idx2])
     return process_op
 
+
 def build_kernel(i8, i32) -> dfg.RegionOp:
     in_type = dfg.OutputType.get(element_type=i8, shape=[8])
     out_type = dfg.InputType.get(element_type=i8, shape=[8])
@@ -312,6 +327,7 @@ def build_kernel(i8, i32) -> dfg.RegionOp:
         dfg.InstantiateOp("conv", [out_port_0], [in_port_1])
         dfg.InstantiateOp("relu", [out_port_1], [out0])
     return region_op
+
 
 def main() -> None:
     ctx = Context()
@@ -338,6 +354,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()

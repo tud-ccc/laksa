@@ -14,6 +14,7 @@ from mlir_laksa.ir import (
 from mlir_laksa.dialects import emithls
 from mlir_laksa.passmanager import PassManager
 
+
 def build_merge_chain(i8, i16, i32, i64, stream_i8, stream_i64) -> emithls.FuncOp:
     func_op = emithls.FuncOp(
         "merge_chain", TypeAttr.get(FunctionType.get([stream_i8, stream_i64], []))
@@ -27,6 +28,7 @@ def build_merge_chain(i8, i16, i32, i64, stream_i8, stream_i64) -> emithls.FuncO
         v3 = emithls.ArithCastOp(i64, v2).result
         emithls.StreamWriteOp(v3, arg1, [])
     return func_op
+
 
 def build_merge_multiout(
     i8, i16, i32, i64, stream_i8, stream_i32, stream_i64
@@ -46,6 +48,7 @@ def build_merge_multiout(
         emithls.StreamWriteOp(v3, arg2, [])
     return func_op
 
+
 def main() -> None:
     ctx = Context()
 
@@ -61,9 +64,7 @@ def main() -> None:
             stream_i64 = emithls.StreamType.get(element_type=i64)
 
             build_merge_chain(i8, i16, i32, i64, stream_i8, stream_i64)
-            build_merge_multiout(
-                i8, i16, i32, i64, stream_i8, stream_i32, stream_i64
-            )
+            build_merge_multiout(i8, i16, i32, i64, stream_i8, stream_i32, stream_i64)
 
         print(module)
 
@@ -74,6 +75,7 @@ def main() -> None:
         pm.run(module.operation)
 
         print(module)
+
 
 if __name__ == "__main__":
     main()
