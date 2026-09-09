@@ -352,6 +352,8 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
     auto lower = [&](const char* pipeline, const char* filename) {
         SmallString<128> irPath(outputDir);
         sys::path::append(irPath, filename);
+        errs() << "INFO: Lowering " << opts.inputFilename << " to " << filename
+               << " through " << pipeline << "...\n";
         run(opts,
             optPath,
             buildOptArgs(opts, optPath, pipeline, opts.inputFilename, irPath));
@@ -364,6 +366,9 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         sys::path::append(irPath, artifact.ir);
         SmallString<128> artifactPath(outputDir);
         sys::path::append(artifactPath, artifact.subdir, artifact.filename);
+        errs() << "INFO: Writing " << artifact.subdir << "/"
+               << artifact.filename << " from " << artifact.ir << " through "
+               << artifact.translation << "...\n";
         run(opts,
             translatePath,
             {translatePath,
@@ -382,6 +387,9 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         }
     }
 
+    errs() << "INFO: Done, wrote "
+           << sizeof(hlsArtifacts) / sizeof(hlsArtifacts[0])
+           << " artifacts below '" << outputDir << "'\n";
     return 0;
 }
 
