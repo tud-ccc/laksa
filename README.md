@@ -53,6 +53,44 @@ bash build.sh
 
 The prebuilt LLVM/MLIR tarball is about 700 MB and lands in `build/`, so the first run takes a while.
 
+## Run in Docker
+
+Images for `linux/amd64` and `linux/arm64` are published to the GitHub Container Registry.
+`main` publishes `latest`, every other branch publishes under its own name:
+
+```bash
+docker pull ghcr.io/tud-ccc/laksa:latest
+```
+
+The image carries the four tools on `PATH`, the `mlir_laksa` bindings importable from both the venv and the system interpreter, and JupyterLab.
+It starts in `/work`, so mount your working di there:
+
+```bash
+docker run --rm -it \
+    -v "/PATH/TO/YOUR/WORK:/work" \
+    -v "/PATH/TO/gurobi.lic:/opt/gurobi/gurobi.lic:ro" \
+    ghcr.io/tud-ccc/laksa:latest \
+```
+
+The license mount is not optional for that command: the pragma DSE pass in the HLS pipeline is Gurobi-backed.
+Without it the entrypoint warns and only the passes that do not need Gurobi still run.
+
+Port 8888 is exposed for notebooks:
+
+```bash
+docker run --rm -it -p 8888:8888 \
+    -v "/PATH/TO/gurobi.lic:/opt/gurobi/gurobi.lic:ro" \
+    -v "$PWD:/work" \
+    ghcr.io/tud-ccc/laksa:latest \
+    jupyter lab --ip 0.0.0.0 --allow-root --no-browser
+```
+
+To build the image from this repository instead:
+
+```bash
+docker build -t laksa .
+```
+
 ## Gurobi license
 
 A license is required however you build, and nothing here creates one for you.
@@ -124,3 +162,80 @@ cmake --build build --target build-laksa-doc
 ```
 
 The Nix shell already provides Sphinx, so the first line is only needed elsewhere.
+
+## Compiling a design
+
+`ladle` is the driver.
+It dispatches to `laksa-opt` and `laksa-translate`, so everything below can also be done by hand with those two.
+
+Run one pipeline and one translation:
+
+```bash
+ladle input.mlir -p convert-to-emithls -t emithls-to-cpp -o main.cpp
+```
+
+`--hls` does the whole thing instead.
+It lowers the input twice and writes every artifact a board deployment needs below one directory:
+
+```bash
+ladle input.mlir --hls -o out_dir
+```
+
+```text
+out_dir/
+├── hls.mlir            the design, lowered to the EmitHLS dialect
+├── ref.mlir            the same input lowered to emitc instead
+├── hw/                 what the build host needs
+│   ├── main.cpp        Vitis HLS input
+│   ├── run_hls.tcl     C synthesis and IP export
+│   ├── run_vivado.tcl  block design, synthesis, implementation, bitstream
+│   └── build.sh        runs both, extracts <design>.bit from the XSA
+└── app/                what the board needs
+    ├── app.h           buffer sizes and AXI-Lite register offsets
+    ├── app.c           userspace driver, talks to /dev/laksa
+    ├── app.dtsi        device tree overlay
+    ├── ref.h           the scalar reference
+    ├── ref.c           compares the board's output against ref.h
+    └── run.sh          loads the design, runs it, checks it
+```
+
+Every `hw/` artifact and most `app/` ones are translated from `hls.mlir`.
+`ref.h` and `ref.c` come from `ref.mlir`, which is the same input lowered without any of the HLS-specific restructuring, so the reference computes what the design is *meant* to compute rather than a re-derivation of what it does.
+
+Each step prints what it is producing, so a failure names the artifact that could not be written.
+
+## Running a design on the board
+
+`hw/` and `app/` are independent and can live on different machines.
+
+**On the build host**, with the Xilinx tools sourced:
+
+```bash
+# In hw
+./build.sh
+```
+
+This runs `vitis-run --mode hls`, then `vivado -mode batch`, then extracts `<design>.bit` from the exported XSA.
+It takes a while.
+`<design>` is the name of the design's top function, `main_top` for the examples under [`examples/`](examples).
+
+`<design>.bit` is the one file the board needs out of `hw/`.
+Put it in the `app/` directory, next to `app.c`, and deploy that directory to the board however you like; `run.sh` looks for the bitstream beside itself and nowhere else.
+
+**On the board**, which needs [`laksa-hls-kria-driver`](https://github.com/tud-ccc/laksa-hls-kria-dirver) loaded and its `laksa.h` installed:
+
+```bash
+# In app
+./run.sh
+```
+
+`run.sh` compiles the overlay with `dtc`, loads it and the bitstream with `fpgautil`, builds `app` and `ref`, fills any missing `input<n>.bin` with random bytes, runs the design, and compares what it wrote against the reference:
+
+```text
+output0.bin: all <num> elements match the reference
+```
+
+Mismatches are reported per element, with the index into the output buffer, and `ref` exits non-zero.
+
+The `.bin` files are raw dumps of the DMA buffers with no header, one `input<n>.bin` per argument the kernel reads and one `output<n>.bin` per argument it writes.
+Dropping in your own inputs of the right size is all it takes to run real data; the sizes are in `app.h`.
