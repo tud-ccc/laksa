@@ -37,10 +37,13 @@ const char* const usage =
     "                           hw/main.cpp         Vitis HLS input\n"
     "                           hw/run_hls.tcl\n"
     "                           hw/run_vivado.tcl\n"
+    "                           hw/build.sh         builds the bitstream\n"
     "                           app/app.h           board-side driver API\n"
     "                           app/app.c           board-side driver\n"
     "                           app/app.dtsi\n"
     "                           app/ref.h           scalar reference\n"
+    "                           app/ref.c           output checker\n"
+    "                           app/run.sh          loads and checks it\n"
     "                         Cannot be combined with --passes or\n"
     "                         --translation\n"
     "  -v, --verbose          Increase laksa-opt's debug verbosity\n"
@@ -116,13 +119,16 @@ struct HLSArtifact {
     const char* filename;
 };
 const HLSArtifact hlsArtifacts[] = {
-    {hlsIRFilename,          "emithls-to-cpp", hlsToolSubdir,       "main.cpp"},
-    {hlsIRFilename,      "emithls-to-hls-tcl", hlsToolSubdir,    "run_hls.tcl"},
-    {hlsIRFilename,   "emithls-to-vivado-tcl", hlsToolSubdir, "run_vivado.tcl"},
-    {hlsIRFilename, "emithls-to-laksa-header",  hlsAppSubdir,          "app.h"},
-    {hlsIRFilename,    "emithls-to-laksa-app",  hlsAppSubdir,          "app.c"},
-    {hlsIRFilename,    "emithls-to-kria-dtsi",  hlsAppSubdir,       "app.dtsi"},
-    {refIRFilename,             "mlir-to-cpp",  hlsAppSubdir,          "ref.h"},
+    {hlsIRFilename,              "emithls-to-cpp", hlsToolSubdir,       "main.cpp"},
+    {hlsIRFilename,          "emithls-to-hls-tcl", hlsToolSubdir,    "run_hls.tcl"},
+    {hlsIRFilename,       "emithls-to-vivado-tcl", hlsToolSubdir, "run_vivado.tcl"},
+    {hlsIRFilename, "emithls-to-hls-build-script", hlsToolSubdir,       "build.sh"},
+    {hlsIRFilename,     "emithls-to-laksa-header",  hlsAppSubdir,          "app.h"},
+    {hlsIRFilename,        "emithls-to-laksa-app",  hlsAppSubdir,          "app.c"},
+    {hlsIRFilename,        "emithls-to-kria-dtsi",  hlsAppSubdir,       "app.dtsi"},
+    {refIRFilename,                 "mlir-to-cpp",  hlsAppSubdir,          "ref.h"},
+    {refIRFilename,          "emitc-to-laksa-ref",  hlsAppSubdir,          "ref.c"},
+    {hlsIRFilename, "emithls-to-laksa-run-script",  hlsAppSubdir,         "run.sh"},
 };
 
 struct Options {
@@ -365,6 +371,15 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
              asFlag(artifact.translation),
              "-o",
              std::string(artifactPath)});
+        if (sys::path::extension(artifactPath) != ".sh") continue;
+        if (auto ec = sys::fs::setPermissions(
+                artifactPath,
+                sys::fs::perms::all_read | sys::fs::perms::owner_write
+                    | sys::fs::perms::all_exe)) {
+            errs() << "ladle: failed to make '" << artifactPath
+                   << "' executable: " << ec.message() << "\n";
+            return 1;
+        }
     }
 
     return 0;

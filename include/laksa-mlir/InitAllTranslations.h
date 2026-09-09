@@ -6,22 +6,28 @@
 namespace mlir {
 
 void registerDFGToDotTranslation();
+void registerEmitCToLaksaRefTranslation();
 void registerEmitHLSToCppTranslation();
+void registerEmitHLSToHLSBuildScriptTranslation();
 void registerEmitHLSToHLSTclTranslation();
 void registerEmitHLSToKriaDtsiTranslation();
 void registerEmitHLSToLaksaAppTranslation();
 void registerEmitHLSToLaksaHeaderTranslation();
+void registerEmitHLSToLaksaRunScriptTranslation();
 void registerEmitHLSToVivadoTclTranslation();
 
 inline void registerAllLAKSAMLIRTranslations()
 {
     static bool initOnce = []() {
         registerDFGToDotTranslation();
+        registerEmitCToLaksaRefTranslation();
         registerEmitHLSToCppTranslation();
+        registerEmitHLSToHLSBuildScriptTranslation();
         registerEmitHLSToHLSTclTranslation();
         registerEmitHLSToKriaDtsiTranslation();
         registerEmitHLSToLaksaAppTranslation();
         registerEmitHLSToLaksaHeaderTranslation();
+        registerEmitHLSToLaksaRunScriptTranslation();
         registerEmitHLSToVivadoTclTranslation();
         return true;
     }();
