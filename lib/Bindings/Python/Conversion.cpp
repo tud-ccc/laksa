@@ -64,6 +64,11 @@ NB_MODULE(_mlirConversion, m)
             pm,
             mlirCreateLAKSAConversionConvertMemRefPadToLAKSALoops());
     });
+    m.def("add_reshaped_copy_to_loops_pass", [](MlirPassManager pm) {
+        mlirPassManagerAddOwnedPass(
+            pm,
+            mlirCreateLAKSAConversionConvertReshapedCopyToLoops());
+    });
 
     m.def(
         "add_convert_to_emitc_pipeline",

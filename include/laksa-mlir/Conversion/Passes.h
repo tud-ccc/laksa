@@ -13,6 +13,7 @@
 #include "laksa-mlir/Conversion/IndexToEmitHLS/IndexToEmitHLS.h"
 #include "laksa-mlir/Conversion/LinalgToLAKSALoops/LinalgToLAKSALoops.h"
 #include "laksa-mlir/Conversion/MemRefPadToLAKSALoops/MemRefPadToLAKSALoops.h"
+#include "laksa-mlir/Conversion/ReshapedCopyToLoops/ReshapedCopyToLoops.h"
 
 namespace mlir::laksa {
 

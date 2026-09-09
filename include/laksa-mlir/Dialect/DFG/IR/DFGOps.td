@@ -117,13 +117,20 @@ def DFG_LoopOp : DFG_Op<"loop", [
         NoTerminator,
         HasParent<"ProcessOp">]>
 {
-    let summary = "Defines a list of input/output ports may be closed.";
+    let summary = "Defines the repeatedly executed body of a process.";
 
     let description = [{
-        The `loop` operation defines a list of input or output ports
-        that will be closed later. The close behavior will terminate
-        the process and populate to other processes so that the whole
-        dataflow graph will be shut down.
+        The `loop` operation defines the repeatedly executed body of a process.
+        During each iteration, operations in the body can pull tokens from the
+        process input ports, perform computations, and push tokens to the
+        process output ports.
+
+        The `inputs` and `outputs` lists identify the process ports that are
+        monitored for stream termination. A port is closed when no further
+        tokens will be transferred through it. When closure is observed on the
+        listed input ports, the process loop terminates and closure propagates
+        through its listed output ports. This allows downstream processes, and
+        eventually the whole dataflow graph, to shut down.
 
         Example:
         ```
@@ -597,12 +604,12 @@ def DFG_PushOp : DFG_Op<"push", []>
 
         Example:
         ```
-        dfg.process @pull outputs(%out0: !dfg.input<type>, %out1: !dfg.input<shapextype>)
+        dfg.process @push outputs(%out0: !dfg.input<type>, %out1: !dfg.input<shapextype>)
         {
             %0 = arith.constant ... : index
             %1 = arith.constant ... : type
             %token0 = dfg.push %1 to %out0 : !dfg.input<type>
-            %token1 = dfg.pull %1 to %out1[%0] : !dfg.input<shapextype>
+            %token1 = dfg.push %1 to %out1[%0] : !dfg.input<shapextype>
         }
         ```
     }];

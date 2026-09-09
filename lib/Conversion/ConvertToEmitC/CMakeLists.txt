@@ -9,4 +9,5 @@ add_mlir_conversion_library(ConvertToEmitC
 
     LINK_LIBS PUBLIC
         MLIRPass
+        ReshapedCopyToLoops
 )
