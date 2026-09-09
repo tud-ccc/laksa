@@ -1238,6 +1238,10 @@ HLSCppEmitter::emitOperation(Operation &op, bool trailingSemicolon)
     resultOS << (trailingSemicolon ? ";" : "");
     resultOS << (trailingNewLine ? "\n" : "");
 
+    if (isa<ArithMulOp>(op) && trailingNewLine)
+        resultOS << "#pragma HLS BIND_OP variable="
+                 << getOrCreateName(op.getResult(0)) << " op=mul impl=dsp\n";
+
     return success();
 }
 
