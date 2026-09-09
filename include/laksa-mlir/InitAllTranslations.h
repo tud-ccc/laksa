@@ -9,6 +9,7 @@ void registerDFGToDotTranslation();
 void registerEmitHLSToCppTranslation();
 void registerEmitHLSToHLSTclTranslation();
 void registerEmitHLSToKriaDtsiTranslation();
+void registerEmitHLSToLaksaAppTranslation();
 void registerEmitHLSToLaksaHeaderTranslation();
 void registerEmitHLSToVivadoTclTranslation();
 
@@ -19,6 +20,7 @@ inline void registerAllLAKSAMLIRTranslations()
         registerEmitHLSToCppTranslation();
         registerEmitHLSToHLSTclTranslation();
         registerEmitHLSToKriaDtsiTranslation();
+        registerEmitHLSToLaksaAppTranslation();
         registerEmitHLSToLaksaHeaderTranslation();
         registerEmitHLSToVivadoTclTranslation();
         return true;

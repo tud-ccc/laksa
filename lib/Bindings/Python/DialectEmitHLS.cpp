@@ -141,6 +141,16 @@ static void populateDialectEmitHLSSubmodule(nb::module_ m)
         nb::arg("op"));
 
     emithls.def(
+        "translate_to_laksa_app",
+        [](MlirOperation op) -> std::string {
+            return translateToString(
+                op,
+                mlirTranslateEmitHLSToLaksaApp,
+                "Translation to a laksa-hls-kria-driver application failed.");
+        },
+        nb::arg("op"));
+
+    emithls.def(
         "translate_to_laksa_header",
         [](MlirOperation op) -> std::string {
             return translateToString(

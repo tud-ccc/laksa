@@ -90,6 +90,14 @@ MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitHLSToKriaDtsi(
     MlirStringCallback callback,
     void* userData);
 
+/// Translates the EmitHLS IR rooted at `op` to a C application driving the
+/// design through the laksa-hls-kria-driver's userspace API and streams the
+/// result through `callback`. `op` must be a module.
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirTranslateEmitHLSToLaksaApp(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData);
+
 /// Translates the EmitHLS IR rooted at `op` to a C header of buffer sizes and
 /// AXI-Lite register offsets for the laksa-hls-kria-driver's userspace API and
 /// streams the result through `callback`. `op` must be a module.

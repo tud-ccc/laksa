@@ -12,6 +12,7 @@ add_mlir_upstream_c_api_library(MLIRCAPIEmitHLS
         MLIRTargetEmitHLSToCpp
         MLIRTargetEmitHLSToHLSTcl
         MLIRTargetEmitHLSToKriaDtsi
+        MLIRTargetEmitHLSToLaksaApp
         MLIRTargetEmitHLSToLaksaHeader
         MLIRTargetEmitHLSToVivadoTcl
 )

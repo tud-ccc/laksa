@@ -28,15 +28,19 @@ const char* const usage =
     "  -p, --passes=<value>   Passes to run through laksa-opt\n"
     "  -t, --translation=<name>\n"
     "                         Translation for laksa-translate to run\n"
-    "      --hls              Run the convert-to-emithls pipeline on the\n"
-    "                         input, then emit the whole HLS artifact set\n"
-    "                         below the output directory:\n"
+    "      --hls              Run the convert-to-emithls and\n"
+    "                         convert-to-laksa-emitc pipelines on the input,\n"
+    "                         then emit the whole HLS artifact set below the\n"
+    "                         output directory:\n"
     "                           hls.mlir            the lowered IR\n"
+    "                           ref.mlir            the input in emitc\n"
     "                           hw/main.cpp         Vitis HLS input\n"
     "                           hw/run_hls.tcl\n"
     "                           hw/run_vivado.tcl\n"
     "                           app/app.h           board-side driver API\n"
+    "                           app/app.c           board-side driver\n"
     "                           app/app.dtsi\n"
+    "                           app/ref.h           scalar reference\n"
     "                         Cannot be combined with --passes or\n"
     "                         --translation\n"
     "  -v, --verbose          Increase laksa-opt's debug verbosity\n"
@@ -88,29 +92,37 @@ const PassDebugType laksaPassDebugTypes[] = {
 const char* const hlsPipeline = "convert-to-emithls";
 /// The EmitHLS IR --hls leaves behind next to the generated artifacts.
 const char* const hlsIRFilename = "hls.mlir";
+/// The scalar reference implementation comes from the same input lowered to
+/// emitc instead, so that it computes what the design is meant to compute
+/// without inheriting any of its HLS-specific restructuring.
+const char* const refPipeline = "convert-to-laksa-emitc";
+const char* const refIRFilename = "ref.mlir";
 /// Subdirectory holding everything the Vitis HLS and Vivado runs need. Both
 /// generated scripts refer to their inputs relatively, so they are meant to be
 /// sourced from here, with the C++ source sitting next to them.
 const char* const hlsToolSubdir = "hw";
 /// Subdirectory holding what gets deployed to the board, i.e. the device tree
-/// overlay and the header the laksa-hls-kria-driver's userspace API is built
-/// against.
+/// overlay and the userspace program built against the laksa-hls-kria-driver.
 const char* const hlsAppSubdir = "app";
 /// One artifact produced by --hls. The file names are not free-form: the
 /// generated run_hls.tcl feeds "main.cpp" to add_files (see the
-/// `hls-source-file` option of emithls-to-hls-tcl), and the userspace driver
-/// of laksa-hls-kria-driver includes "app.h" alongside "app.dtsi".
+/// `hls-source-file` option of emithls-to-hls-tcl), and the generated app.c
+/// includes "app.h" (see the `laksa-app-header` option of
+/// emithls-to-laksa-app).
 struct HLSArtifact {
+    const char* ir; // the lowered IR the artifact is translated from
     const char* translation;
     const char* subdir;
     const char* filename;
 };
 const HLSArtifact hlsArtifacts[] = {
-    {         "emithls-to-cpp", hlsToolSubdir,       "main.cpp"},
-    {     "emithls-to-hls-tcl", hlsToolSubdir,    "run_hls.tcl"},
-    {  "emithls-to-vivado-tcl", hlsToolSubdir, "run_vivado.tcl"},
-    {"emithls-to-laksa-header",  hlsAppSubdir,          "app.h"},
-    {   "emithls-to-kria-dtsi",  hlsAppSubdir,       "app.dtsi"},
+    {hlsIRFilename,          "emithls-to-cpp", hlsToolSubdir,       "main.cpp"},
+    {hlsIRFilename,      "emithls-to-hls-tcl", hlsToolSubdir,    "run_hls.tcl"},
+    {hlsIRFilename,   "emithls-to-vivado-tcl", hlsToolSubdir, "run_vivado.tcl"},
+    {hlsIRFilename, "emithls-to-laksa-header",  hlsAppSubdir,          "app.h"},
+    {hlsIRFilename,    "emithls-to-laksa-app",  hlsAppSubdir,          "app.c"},
+    {hlsIRFilename,    "emithls-to-kria-dtsi",  hlsAppSubdir,       "app.dtsi"},
+    {refIRFilename,             "mlir-to-cpp",  hlsAppSubdir,          "ref.h"},
 };
 
 struct Options {
@@ -331,13 +343,19 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
 
     // The lowered IR stays at the top level: it is an intermediate, not
     // something either the toolchain or the board consumes.
-    SmallString<128> irPath(outputDir);
-    sys::path::append(irPath, hlsIRFilename);
-    run(opts,
-        optPath,
-        buildOptArgs(opts, optPath, hlsPipeline, opts.inputFilename, irPath));
+    auto lower = [&](const char* pipeline, const char* filename) {
+        SmallString<128> irPath(outputDir);
+        sys::path::append(irPath, filename);
+        run(opts,
+            optPath,
+            buildOptArgs(opts, optPath, pipeline, opts.inputFilename, irPath));
+    };
+    lower(hlsPipeline, hlsIRFilename);
+    lower(refPipeline, refIRFilename);
 
     for (const auto &artifact : hlsArtifacts) {
+        SmallString<128> irPath(outputDir);
+        sys::path::append(irPath, artifact.ir);
         SmallString<128> artifactPath(outputDir);
         sys::path::append(artifactPath, artifact.subdir, artifact.filename);
         run(opts,

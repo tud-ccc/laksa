@@ -9,6 +9,7 @@
 #include "laksa-mlir/Target/EmitHLSToCpp/HLSCppEmitter.h"
 #include "laksa-mlir/Target/EmitHLSToHLSTcl/HLSTclEmitter.h"
 #include "laksa-mlir/Target/EmitHLSToKriaDtsi/KriaDtsiEmitter.h"
+#include "laksa-mlir/Target/EmitHLSToLaksaApp/LaksaAppEmitter.h"
 #include "laksa-mlir/Target/EmitHLSToLaksaHeader/LaksaHeaderEmitter.h"
 #include "laksa-mlir/Target/EmitHLSToVivadoTcl/VivadoTclEmitter.h"
 #include "mlir-c/IR.h"
@@ -128,17 +129,19 @@ MlirLogicalResult mlirTranslateEmitHLSToHLSTcl(
     MlirOperation op,
     MlirStringCallback callback,
     void* userData)
-{
-    return translateModule(op, callback, userData, translateEmitHLSToHLSTcl);
-}
+{ return translateModule(op, callback, userData, translateEmitHLSToHLSTcl); }
 
 MlirLogicalResult mlirTranslateEmitHLSToKriaDtsi(
     MlirOperation op,
     MlirStringCallback callback,
     void* userData)
-{
-    return translateModule(op, callback, userData, translateEmitHLSToKriaDtsi);
-}
+{ return translateModule(op, callback, userData, translateEmitHLSToKriaDtsi); }
+
+MlirLogicalResult mlirTranslateEmitHLSToLaksaApp(
+    MlirOperation op,
+    MlirStringCallback callback,
+    void* userData)
+{ return translateModule(op, callback, userData, translateEmitHLSToLaksaApp); }
 
 MlirLogicalResult mlirTranslateEmitHLSToLaksaHeader(
     MlirOperation op,
@@ -156,6 +159,4 @@ MlirLogicalResult mlirTranslateEmitHLSToVivadoTcl(
     MlirOperation op,
     MlirStringCallback callback,
     void* userData)
-{
-    return translateModule(op, callback, userData, translateEmitHLSToVivadoTcl);
-}
+{ return translateModule(op, callback, userData, translateEmitHLSToVivadoTcl); }

@@ -1,6 +1,6 @@
-add_mlir_translation_library(MLIRTargetEmitHLSToLaksaHeader
+add_mlir_translation_library(MLIRTargetEmitHLSToLaksaApp
         TranslationRegistration.cpp
-        EmitHLSToLaksaHeader.cpp
+        EmitHLSToLaksaApp.cpp
 
     LINK_LIBS PUBLIC
         MLIRIR
