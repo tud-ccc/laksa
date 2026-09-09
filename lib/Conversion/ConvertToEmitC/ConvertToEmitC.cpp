@@ -5,6 +5,7 @@
 
 #include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 
+#include "laksa-mlir/Conversion/ReshapedCopyToLoops/ReshapedCopyToLoops.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ConvertToEmitC/ConvertToEmitCPass.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
@@ -56,7 +57,11 @@ void mlir::laksa::addConvertToEmitCPasses(
     pm.addPass(
         bufferization::createBufferResultsToOutParamsPass(outParamsOptions));
     pm.addPass(createConvertLinalgToLoopsPass());
+    // Fold the reshapes bufferization left behind into the loads and stores
+    // that consume them.
+    pm.addPass(memref::createFoldMemRefAliasOpsPass());
     pm.addPass(memref::createExpandStridedMetadataPass());
+    pm.addPass(createConvertReshapedCopyToLoopsPass());
     pm.addPass(createLowerAffinePass());
     pm.addPass(createCSEPass());
     pm.addPass(createCanonicalizerPass());
@@ -64,8 +69,9 @@ void mlir::laksa::addConvertToEmitCPasses(
     // array, the only kind of buffer EmitC can express.
     bufferization::PromoteBuffersToStackPassOptions promoteOptions;
     promoteOptions.maxAllocSizeInBytes = maxAllocSizeInBytes;
-    pm.nest("func.func").addPass(
-        bufferization::createPromoteBuffersToStackPass(promoteOptions));
+    pm.nest("func.func")
+        .addPass(
+            bufferization::createPromoteBuffersToStackPass(promoteOptions));
     // ArithToEmitC has no pattern for the min/max ops; expand them into the
     // cmpi/select pairs it does handle.
     pm.addPass(arith::createArithExpandOpsPass());
