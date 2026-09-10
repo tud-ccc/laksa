@@ -5,12 +5,15 @@
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <optional>
 
 using namespace llvm;
 
@@ -46,6 +49,10 @@ const char* const usage =
     "                           app/run.sh          loads and checks it\n"
     "                         Cannot be combined with --passes or\n"
     "                         --translation\n"
+    "      --num-bram=<n>     With --hls, the number of BRAMs the pragma DSE\n"
+    "                         may use (default: 288)\n"
+    "      --num-dsp=<n>      With --hls, the number of DSPs the pragma DSE\n"
+    "                         may use (default: 1248)\n"
     "  -v, --verbose          Increase laksa-opt's debug verbosity\n"
     "                         (repeatable, e.g. -vvv); has no effect on\n"
     "                         laksa-translate. Each level adds on top of\n"
@@ -137,6 +144,8 @@ struct Options {
     std::string passes;
     std::string translation;
     bool hls = false;
+    std::optional<unsigned> numBRAM;
+    std::optional<unsigned> numDSP;
     unsigned verbosity = 0;
 };
 
@@ -156,6 +165,17 @@ Options parseArgs(int argc, char** argv)
             exit(1);
         }
         return argv[++i];
+    };
+    auto takeCount = [&](StringRef flag, StringRef inlineValue, int &i) {
+        std::string value = takeValue(flag, inlineValue, i);
+        unsigned count;
+        if (StringRef(value).getAsInteger(10, count)) {
+            errs()
+                << "ladle: option '" << flag
+                << "' requires a non-negative integer, got '" << value << "'\n";
+            exit(1);
+        }
+        return count;
     };
 
     for (int i = 1; i < argc; ++i) {
@@ -192,6 +212,10 @@ Options parseArgs(int argc, char** argv)
 
         if (name == "-o" || name == "--output") {
             opts.outputFilename = takeValue(name, inlineValue, i);
+        } else if (name == "--num-bram") {
+            opts.numBRAM = takeCount(name, inlineValue, i);
+        } else if (name == "--num-dsp") {
+            opts.numDSP = takeCount(name, inlineValue, i);
         } else if (name == "-p" || name == "--passes") {
             opts.passes = takeValue(name, inlineValue, i);
         } else if (name == "-t" || name == "--translation") {
@@ -218,6 +242,12 @@ Options parseArgs(int argc, char** argv)
     if (opts.hls && (!opts.passes.empty() || !opts.translation.empty())) {
         errs() << "ladle: '--hls' brings its own pipeline and translations; "
                   "it cannot be combined with '--passes' or '--translation'\n";
+        exit(1);
+    }
+
+    if (!opts.hls && (opts.numBRAM || opts.numDSP)) {
+        errs() << "ladle: '--num-bram' and '--num-dsp' set the resource budget "
+                  "of '--hls' and cannot be used without it\n";
         exit(1);
     }
 
@@ -349,7 +379,7 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
 
     // The lowered IR stays at the top level: it is an intermediate, not
     // something either the toolchain or the board consumes.
-    auto lower = [&](const char* pipeline, const char* filename) {
+    auto lower = [&](StringRef pipeline, const char* filename) {
         SmallString<128> irPath(outputDir);
         sys::path::append(irPath, filename);
         errs() << "INFO: Lowering " << opts.inputFilename << " to " << filename
@@ -358,7 +388,18 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
             optPath,
             buildOptArgs(opts, optPath, pipeline, opts.inputFilename, irPath));
     };
-    lower(hlsPipeline, hlsIRFilename);
+    // The resource budget reaches the pipeline as its options, which only the
+    // textual pipeline form can carry; buildOptArgs forwards that verbatim.
+    SmallVector<std::string> hlsOptions;
+    if (opts.numBRAM)
+        hlsOptions.push_back("available-bram=" + std::to_string(*opts.numBRAM));
+    if (opts.numDSP)
+        hlsOptions.push_back("available-dsp=" + std::to_string(*opts.numDSP));
+    std::string hlsPasses = hlsPipeline;
+    if (!hlsOptions.empty())
+        hlsPasses = std::string("builtin.module(") + hlsPipeline + "{"
+                    + join(hlsOptions, " ") + "})";
+    lower(hlsPasses, hlsIRFilename);
     lower(refPipeline, refIRFilename);
 
     for (const auto &artifact : hlsArtifacts) {
