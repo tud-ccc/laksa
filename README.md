@@ -204,6 +204,12 @@ Every `hw/` artifact and most `app/` ones are translated from `hls.mlir`.
 
 Each step prints what it is producing, so a failure names the artifact that could not be written.
 
+`--num-bram` and `--num-dsp` give the pragma DSE a different resource budget than the default one of `convert-to-emithls` (by default 288 BRAMs and 1248 DSPs):
+
+```bash
+ladle input.mlir --hls --num-bram=144 --num-dsp=600 -o out_dir
+```
+
 ## Running a design on the board
 
 `hw/` and `app/` are independent and can live on different machines.
