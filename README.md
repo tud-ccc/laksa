@@ -63,14 +63,15 @@ docker pull ghcr.io/tud-ccc/laksa:latest
 ```
 
 The image carries the four tools on `PATH`, the `mlir_laksa` bindings importable from both the venv and the system interpreter, and JupyterLab.
-It starts in `/work`, so mount your working di there:
+It also ships the tutorial from [`examples/cps26/`](examples/cps26) as `/root/cps26`, which is where it starts:
 
 ```bash
 docker run --rm -it \
-    -v "/PATH/TO/YOUR/WORK:/work" \
     -v "/PATH/TO/gurobi.lic:/opt/gurobi/gurobi.lic:ro" \
-    ghcr.io/tud-ccc/laksa:latest \
+    ghcr.io/tud-ccc/laksa:latest
 ```
+
+Your own files can still be mounted anywhere, e.g. with `-v "/PATH/TO/YOUR/WORK:/work"`.
 
 The license mount is not optional for that command: the pragma DSE pass in the HLS pipeline is Gurobi-backed.
 Without it the entrypoint warns and only the passes that do not need Gurobi still run.
@@ -80,10 +81,13 @@ Port 8888 is exposed for notebooks:
 ```bash
 docker run --rm -it -p 8888:8888 \
     -v "/PATH/TO/gurobi.lic:/opt/gurobi/gurobi.lic:ro" \
-    -v "$PWD:/work" \
     ghcr.io/tud-ccc/laksa:latest \
     jupyter lab --ip 0.0.0.0 --allow-root --no-browser
 ```
+
+JupyterLab opens in `/root/cps26` as well, with the tutorial notebook at the top.
+It cannot browse above that folder, so anything else you want to see in it has to be mounted below, e.g. with `-v "$PWD:/root/cps26/work"`.
+Because of `--rm`, changes made inside the container are gone once it exits, unless they are in a mounted directory.
 
 To build the image from this repository instead:
 
