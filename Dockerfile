@@ -237,11 +237,8 @@ RUN set -eux; \
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 
-# --- Tutorial -----------------------------------------------------------------
-COPY examples/cps26 /root/cps26
-
 EXPOSE 8888
-WORKDIR /root/cps26
+WORKDIR /work
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["bash"]
