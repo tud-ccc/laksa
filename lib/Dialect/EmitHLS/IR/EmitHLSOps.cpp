@@ -1147,20 +1147,20 @@ struct RemoveTrivialLoop : public OpRewritePattern<ForOp> {
         if ((op.getLowerBound() + op.getStep()) != op.getUpperBound())
             return failure();
 
-        // A loop driven by a pipeline pragma is normally preserved no
-        // matter what it's nested inside. It's still safe to drop when its
-        // induction variable is never read and it's the only thing in its
-        // parent loop's body, so the pragma can move there without also
-        // starting to cover unrelated sibling content in that parent.
         Block &body = op.getRegion().front();
         bool hasPipeline = !body.empty() && isa<PragmaPipelineOp>(body.front());
-        auto parent = dyn_cast_or_null<ForOp>(op->getParentOp());
-        bool onlyLoopInParent =
-            parent && &parent.getBody().front().front() == op.getOperation()
-            && &parent.getBody().front().back() == op.getOperation();
-        if (hasPipeline
-            && (!op.getInductionVariable().use_empty() || !onlyLoopInParent))
-            return failure();
+        auto parent = dyn_cast<ForOp>(op->getParentOp());
+        bool siblingHasLoop =
+            parent
+            && llvm::any_of(parent.getBody().front(), [&](Operation &sibling) {
+                   return &sibling != op.getOperation()
+                          && sibling
+                                 .walk([](ForOp) {
+                                     return WalkResult::interrupt();
+                                 })
+                                 .wasInterrupted();
+               });
+        if (hasPipeline && (!parent || siblingHasLoop)) return failure();
 
         if (hasPipeline)
             rewriter.moveOpBefore(
