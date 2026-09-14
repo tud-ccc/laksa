@@ -544,6 +544,11 @@ int64_t getScalarBitWidth(Type type)
 
 // A Xilinx BRAM18 block holds 18Kb = 18432 bits.
 constexpr int64_t kBramBits = 18432;
+// Largest split factor a Full or Deferred candidate loop may pick.
+constexpr int64_t kMaxUnrollFactor = 32;
+// Largest FIFO depth taken from a consumer's per-token cycles, before merge
+// padding.
+constexpr int64_t kMaxFIFODepth = 32;
 
 //===----------------------------------------------------------------------===//
 // DSE graph
@@ -693,22 +698,25 @@ GRBValue setupLoopUnrollFactor(
     switch (candidate.kind) {
     case LoopSplitKind::Full:
     case LoopSplitKind::Binary:
-        // Binary picks from the same divisor set as Full here since it's
+    {
+        // Binary picks from every divisor, not capped like Full, since it's
         // also tied to whatever factor a connected port needs, which isn't
         // necessarily 1 or its own trip count. Being forced to exactly its
         // trip count only kicks in later, and only if it ends up pipelined.
-        return chooseSplitFactor(
-            model,
-            loop,
-            getValidFactors(tripCount),
-            namePrefix);
+        SmallVector<int64_t> factors = getValidFactors(tripCount);
+        if (candidate.kind == LoopSplitKind::Full)
+            llvm::erase_if(factors, [](int64_t f) {
+                return f > kMaxUnrollFactor;
+            });
+        return chooseSplitFactor(model, loop, factors, namePrefix);
+    }
     case LoopSplitKind::Deferred:
         LAKSA_DEBUG(
             llvm::dbgs()
             << "    " << loop.getLoc() << ": deferred, tied to connected port");
         return GRBValue(model.addVar(
             1.0,
-            double(tripCount),
+            double(std::min(tripCount, kMaxUnrollFactor)),
             0.0,
             GRB_INTEGER,
             namePrefix + "_factor"));
@@ -765,6 +773,25 @@ GRBValue maxOfAll(
         result =
             maxOfTwo(model, result, values[i], namePrefix + std::to_string(i));
     return result;
+}
+
+// The lesser of "value" and the constant "bound".
+GRBValue minWithConstant(
+    GRBModel &model,
+    const GRBValue &value,
+    int64_t bound,
+    const std::string &namePrefix)
+{
+    GRBVar var = materializeVar(model, value, namePrefix + "_in");
+    GRBVar minVar =
+        model.addVar(0.0, GRB_INFINITY, 0.0, GRB_INTEGER, namePrefix + "_min");
+    model.addGenConstrMin(
+        minVar,
+        &var,
+        1,
+        double(bound),
+        namePrefix + "_min_constr");
+    return GRBValue(minVar);
 }
 
 // Populates "loops" on every node in "graph" with a split-factor variable for
@@ -1843,14 +1870,19 @@ void computeBufferDepths(GRBModel &model, DSEGraph &graph)
         if (isIOFunction(node->callee))
             node->producedTokenCycles = GRBValue(int64_t(2));
 
-    for (auto &edge : graph.edges) {
+    for (auto [idx, edge] : llvm::enumerate(graph.edges)) {
         if (!edge->producer || !edge->consumer) continue;
-        edge->bufferDepth = edge->consumer->producedTokenCycles;
+        edge->bufferDepth = minWithConstant(
+            model,
+            edge->consumer->producedTokenCycles,
+            kMaxFIFODepth,
+            "edge" + std::to_string(idx) + "_depth");
         LAKSA_DEBUG(
             llvm::dbgs() << "    " << edge->variable.getLoc() << ": "
                          << edge->producer->callee.getSymName() << " -> "
                          << edge->consumer->callee.getSymName()
-                         << ", depth <- consumer's producedTokenCycles");
+                         << ", depth <- min(consumer's producedTokenCycles, "
+                         << kMaxFIFODepth << ")");
     }
 
     DenseMap<DSENode*, SmallVector<DSEEdge*>> incomingByConsumer;
