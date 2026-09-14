@@ -434,12 +434,30 @@ struct RewriteFuncSignature : public OpConversionPattern<FuncOp> {
         }
 
         // A widened/narrowed pointer port leaves the local "word" variable
-        // an I/O write function packs before its own ptr_write stale at its
-        // old width (the clone above just copied it verbatim); rebuild it
-        // at the pointer's own new element type so the two agree again.
+        // an I/O write function packs before its own ptr_write, and the word
+        // an I/O read function gets from its own ptr_read, stale at their
+        // old width (the clone above just copied them verbatim); rebuild
+        // them at the pointer's own new element type so they agree again.
         for (auto [i, newArg] : llvm::enumerate(entry->getArguments())) {
             Type newPointee = newPointeeTypes[i];
             if (!newPointee) continue;
+            SmallVector<ArrayPointerReadOp> staleReads;
+            newFunc.walk([&](ArrayPointerReadOp readOp) {
+                if (readOp.getPointer() == newArg
+                    && readOp.getType() != newPointee)
+                    staleReads.push_back(readOp);
+            });
+            for (ArrayPointerReadOp readOp : staleReads) {
+                rewriter.setInsertionPoint(readOp);
+                Value newRead = ArrayPointerReadOp::create(
+                    rewriter,
+                    readOp.getLoc(),
+                    newPointee,
+                    readOp.getPointer(),
+                    readOp.getIndices());
+                readOp.getResult().replaceAllUsesWith(newRead);
+                rewriter.eraseOp(readOp);
+            }
             SmallVector<ArrayPointerWriteOp> staleWrites;
             newFunc.walk([&](ArrayPointerWriteOp writeOp) {
                 if (writeOp.getPointer() == newArg
