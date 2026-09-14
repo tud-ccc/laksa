@@ -31,6 +31,21 @@ def build_copy_through_cast(
     return func_op
 
 
+def build_copy_into_cast(
+    name, source_type, cast_type, target_type, offset, sizes, strides
+) -> func.FuncOp:
+    func_op = func.FuncOp(name, FunctionType.get([source_type, target_type], []))
+    block = func_op.add_entry_block()
+    with InsertionPoint(block):
+        source, target = block.arguments
+        cast = memref.ReinterpretCastOp(
+            cast_type, target, [], [], [], [offset], sizes, strides
+        )
+        memref.CopyOp(source, cast.result)
+        func.ReturnOp([])
+    return func_op
+
+
 def main() -> None:
     ctx = Context()
 
@@ -74,6 +89,26 @@ def main() -> None:
                 32,
                 [4, 8],
                 [8, 1],
+            )
+            build_copy_into_cast(
+                "padded",
+                MemRefType.get([1, 2, 2, 4], i8),
+                MemRefType.get(
+                    [1, 2, 2, 4], i8, StridedLayoutAttr.get(20, [64, 16, 4, 1])
+                ),
+                MemRefType.get([1, 4, 4, 4], i8),
+                20,
+                [1, 2, 2, 4],
+                [64, 16, 4, 1],
+            )
+            build_copy_through_cast(
+                "stepped",
+                MemRefType.get([8, 8], i8),
+                MemRefType.get([4, 8], i8, StridedLayoutAttr.get(0, [16, 1])),
+                MemRefType.get([4, 8], i8),
+                0,
+                [4, 8],
+                [16, 1],
             )
 
         print(module)

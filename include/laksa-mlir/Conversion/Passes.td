@@ -88,7 +88,7 @@ def ConvertMemRefPadToLAKSALoops : Pass<"convert-memref-pad-to-laksa-loops"> {
 }
 
 def ConvertReshapedCopyToLoops : Pass<"convert-reshaped-copy-to-loops"> {
-    let summary = "Convert a memref copy through a pure reshape into an element loop.";
+    let summary = "Convert a memref copy through a pure reshape or window into an element loop.";
 
     let constructor = "mlir::createConvertReshapedCopyToLoopsPass()";
 
