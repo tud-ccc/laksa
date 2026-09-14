@@ -254,6 +254,7 @@ LogicalResult laksa::translateEmitCToLaksaRef(ModuleOp op, raw_ostream &os)
           "#include <stdint.h>\n"
           "#include <stdio.h>\n"
           "#include <stdlib.h>\n"
+          "#include <string.h>\n"
           "\n";
 
     if (renameKernel)

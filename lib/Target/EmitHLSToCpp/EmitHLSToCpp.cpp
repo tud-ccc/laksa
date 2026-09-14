@@ -1085,7 +1085,8 @@ LogicalResult HLSCppEmitter::emitOperand(Value value)
             return emitExpression(exprOp, false);
         if (auto varOp = dyn_cast<VariableOp>(defOp)) {
             if (shouldEmitConstant(varOp)) {
-                if (isa<ArithMaxOp, ArithMinOp>(getCurrentOperation())) {
+                if (isa<ArithMaxOp, ArithMinOp, ArithShlOp>(
+                        getCurrentOperation())) {
                     os << "(";
                     if (failed(emitType(varOp.getLoc(), varOp.getType())))
                         return failure();

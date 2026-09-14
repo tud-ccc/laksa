@@ -14,6 +14,7 @@
 #include <llvm/Support/Debug.h>
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/Transforms/GreedyPatternRewriteDriver.h>
+#include <optional>
 
 #define DEBUG_TYPE "reshaped-copy-to-loops"
 #define LAKSA_DEBUG(X)                                                         \
@@ -33,7 +34,8 @@ namespace {
 static bool isFlat(Type type)
 {
     auto memrefTy = dyn_cast<MemRefType>(type);
-    return memrefTy && memrefTy.hasStaticShape() && memrefTy.getNumElements() > 0
+    return memrefTy && memrefTy.hasStaticShape()
+           && memrefTy.getNumElements() > 0
            && memrefTy.getLayout().isIdentity();
 }
 
@@ -48,6 +50,60 @@ static bool isPureReshape(memref::ReinterpretCastOp castOp)
     if (sourceTy.getNumElements() != resultTy.getNumElements()) return false;
     ArrayRef<int64_t> offsets = castOp.getStaticOffsets();
     return offsets.size() == 1 && offsets.front() == 0;
+}
+
+// Row-major strides of a contiguous buffer with the given shape.
+static SmallVector<int64_t> contiguousStrides(ArrayRef<int64_t> shape)
+{
+    SmallVector<int64_t> strides(shape.size());
+    int64_t stride = 1;
+    for (size_t dim = shape.size(); dim-- > 0;) {
+        strides[dim] = stride;
+        stride *= shape[dim];
+    }
+    return strides;
+}
+
+// A block of a flat buffer, starting at starts along each dimension.
+struct Window {
+    Value buffer;
+    SmallVector<int64_t> starts;
+};
+
+// The block of a flat buffer that value addresses, either the whole buffer or
+// an unstepped same-rank reinterpret_cast of it.
+static std::optional<Window> windowOf(Value value)
+{
+    auto valueTy = dyn_cast<MemRefType>(value.getType());
+    if (!valueTy || !valueTy.hasStaticShape()) return std::nullopt;
+    if (isFlat(valueTy))
+        return Window{value, SmallVector<int64_t>(valueTy.getRank(), 0)};
+
+    auto castOp = value.getDefiningOp<memref::ReinterpretCastOp>();
+    if (!castOp) return std::nullopt;
+    auto bufferTy = dyn_cast<MemRefType>(castOp.getSource().getType());
+    if (!bufferTy || !isFlat(bufferTy)) return std::nullopt;
+    if (bufferTy.getElementType() != valueTy.getElementType()
+        || bufferTy.getRank() != valueTy.getRank())
+        return std::nullopt;
+
+    ArrayRef<int64_t> offsets = castOp.getStaticOffsets();
+    SmallVector<int64_t> strides = contiguousStrides(bufferTy.getShape());
+    if (offsets.size() != 1 || offsets.front() < 0
+        || castOp.getStaticSizes() != valueTy.getShape()
+        || castOp.getStaticStrides() != ArrayRef<int64_t>(strides))
+        return std::nullopt;
+
+    Window window{castOp.getSource(), {}};
+    int64_t rest = offsets.front();
+    for (auto [dim, stride] : llvm::enumerate(strides)) {
+        window.starts.push_back(rest / stride);
+        rest %= stride;
+        if (window.starts.back() + valueTy.getDimSize(dim)
+            > bufferTy.getDimSize(dim))
+            return std::nullopt;
+    }
+    return window;
 }
 
 // Where the dimensions of type cut the linear index space. Dimension i spans
@@ -106,9 +162,9 @@ struct ReshapedCopyToLoops : public OpRewritePattern<memref::CopyOp> {
 
         Location loc = op.getLoc();
         LAKSA_DEBUG(
-            llvm::dbgs() << "Expanding copy of " << sourceTy << " into "
-                         << targetTy << " over " << nestBounds->size() - 1
-                         << " loops");
+            llvm::dbgs()
+            << "Expanding copy of " << sourceTy << " into " << targetTy
+            << " over " << nestBounds->size() - 1 << " loops");
 
         Value zero = arith::ConstantIndexOp::create(rewriter, loc, 0);
         Value one = arith::ConstantIndexOp::create(rewriter, loc, 1);
@@ -143,13 +199,10 @@ struct ReshapedCopyToLoops : public OpRewritePattern<memref::CopyOp> {
                         term =
                             arith::MulIOp::create(rewriter, loc, term, factor);
                     }
-                    index = index
-                                ? arith::AddIOp::create(
-                                      rewriter,
-                                      loc,
-                                      index,
-                                      term)
-                                : term;
+                    index =
+                        index
+                            ? arith::AddIOp::create(rewriter, loc, index, term)
+                            : term;
                 }
                 indices.push_back(index ? index : zero);
             }
@@ -173,6 +226,81 @@ struct ReshapedCopyToLoops : public OpRewritePattern<memref::CopyOp> {
     }
 };
 
+// Rewrites a copy between blocks of flat buffers into an element loop over the
+// buffers.
+struct WindowedCopyToLoops : public OpRewritePattern<memref::CopyOp> {
+    using OpRewritePattern<memref::CopyOp>::OpRewritePattern;
+
+    LogicalResult
+    matchAndRewrite(memref::CopyOp op, PatternRewriter &rewriter) const override
+    {
+        std::optional<Window> source = windowOf(op.getSource());
+        std::optional<Window> target = windowOf(op.getTarget());
+        if (!source || !target) return failure();
+        if (source->buffer == op.getSource()
+            && target->buffer == op.getTarget())
+            return failure();
+
+        auto sourceTy = cast<MemRefType>(op.getSource().getType());
+        auto targetTy = cast<MemRefType>(op.getTarget().getType());
+        if (sourceTy.getShape() != targetTy.getShape()) return failure();
+
+        Location loc = op.getLoc();
+        LAKSA_DEBUG(
+            llvm::dbgs() << "Expanding windowed copy of " << sourceTy
+                         << " into " << targetTy);
+
+        Value zero = arith::ConstantIndexOp::create(rewriter, loc, 0);
+        Value one = arith::ConstantIndexOp::create(rewriter, loc, 1);
+
+        OpBuilder::InsertionGuard guard(rewriter);
+        SmallVector<Value> inductionVars;
+        for (int64_t size : sourceTy.getShape()) {
+            if (size == 1) {
+                inductionVars.push_back(nullptr);
+                continue;
+            }
+            Value extent = arith::ConstantIndexOp::create(rewriter, loc, size);
+            auto loop = scf::ForOp::create(rewriter, loc, zero, extent, one);
+            inductionVars.push_back(loop.getInductionVar());
+            rewriter.setInsertionPointToStart(loop.getBody());
+        }
+
+        auto indicesFor = [&](const Window &window) {
+            SmallVector<Value> indices;
+            for (auto [start, inductionVar] :
+                 llvm::zip_equal(window.starts, inductionVars)) {
+                Value index = inductionVar;
+                if (!index) {
+                    index =
+                        arith::ConstantIndexOp::create(rewriter, loc, start);
+                } else if (start != 0) {
+                    Value offset =
+                        arith::ConstantIndexOp::create(rewriter, loc, start);
+                    index = arith::AddIOp::create(rewriter, loc, index, offset);
+                }
+                indices.push_back(index);
+            }
+            return indices;
+        };
+
+        Value element = memref::LoadOp::create(
+            rewriter,
+            loc,
+            source->buffer,
+            indicesFor(*source));
+        memref::StoreOp::create(
+            rewriter,
+            loc,
+            element,
+            target->buffer,
+            indicesFor(*target));
+
+        rewriter.eraseOp(op);
+        return success();
+    }
+};
+
 struct ConvertReshapedCopyToLoopsPass
         : public impl::ConvertReshapedCopyToLoopsBase<
               ConvertReshapedCopyToLoopsPass> {
@@ -189,7 +317,10 @@ struct ConvertReshapedCopyToLoopsPass
 } // namespace
 
 void mlir::populateReshapedCopyToLoopsPatterns(RewritePatternSet &patterns)
-{ patterns.add<ReshapedCopyToLoops>(patterns.getContext()); }
+{
+    patterns.add<ReshapedCopyToLoops, WindowedCopyToLoops>(
+        patterns.getContext());
+}
 
 std::unique_ptr<Pass> mlir::createConvertReshapedCopyToLoopsPass()
 { return std::make_unique<ConvertReshapedCopyToLoopsPass>(); }
