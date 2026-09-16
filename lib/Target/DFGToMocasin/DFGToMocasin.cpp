@@ -234,14 +234,27 @@ namespace {
 /// walk, resolve every connection: instantiate/embed nodes are visited
 /// first (populating the map for every operand they use, including a
 /// region's own block arguments), then channels are resolved by lookup.
+///
+/// Top-level region ports are materialized in the emitted document as
+/// synthetic `<region>-inN-source` and `<region>-outN-sink` processes. Their
+/// single port has rate 1, and the connecting channel starts empty; the source
+/// DFG IR is not modified.
 class MocasinEmitter {
 public:
     explicit MocasinEmitter(DataLayout &dataLayout) : dataLayout(dataLayout) {}
 
-    void emitModule(ModuleOp module, std::vector<MocasinDocument> &docs);
+    LogicalResult
+    emitModule(ModuleOp module, std::vector<MocasinDocument> &docs);
 
 private:
     std::string uniqueName(StringRef base);
+    PortRef
+    addBoundaryProcess(StringRef baseName, bool isSource, MocasinDocument &doc);
+    void addChannel(
+        Type tokenType,
+        const PortRef &producer,
+        const PortRef &consumer,
+        MocasinDocument &doc);
     void flattenRegion(
         RegionOp region,
         const std::string &prefix,
@@ -264,6 +277,54 @@ std::string MocasinEmitter::uniqueName(StringRef base)
         return name;
     }
     return name + "_" + std::to_string(counter++);
+}
+
+PortRef MocasinEmitter::addBoundaryProcess(
+    StringRef baseName,
+    bool isSource,
+    MocasinDocument &doc)
+{
+    std::string processName = uniqueName(baseName);
+    std::string portName = isSource ? "out0" : "in0";
+
+    MocasinPorts ports;
+    if (isSource)
+        ports.out.push_back(portName);
+    else
+        ports.in.push_back(portName);
+    doc.graph.processes.emplace(
+        processName,
+        MocasinProcessDef{std::move(ports)});
+
+    MocasinInstance instance;
+    instance.profile = processName;
+    instance.rates[portName] = 1;
+    doc.execution.processes.instances.emplace(processName, std::move(instance));
+    doc.execution.processes.profiles.emplace(
+        processName,
+        CyclesByProcessor{
+            {"UNKNOWN", CyclesEntry{0}}
+    });
+
+    return {processName, portName};
+}
+
+void MocasinEmitter::addChannel(
+    Type tokenType,
+    const PortRef &producer,
+    const PortRef &consumer,
+    MocasinDocument &doc)
+{
+    std::string chanName = "ch" + std::to_string(channelCounter++);
+
+    MocasinChannelDef chanDef;
+    chanDef.src = {producer.leafName, producer.portName};
+    chanDef.dst = {consumer.leafName, consumer.portName};
+    chanDef.tokenSize = dataLayout.getTypeSize(tokenType).getFixedValue();
+    doc.graph.channels.emplace(chanName, std::move(chanDef));
+
+    // DFG channels and synthesized graph-boundary channels both start empty.
+    doc.execution.channels.emplace(chanName, ChannelExec{0});
 }
 
 void MocasinEmitter::flattenRegion(
@@ -352,25 +413,12 @@ void MocasinEmitter::flattenRegion(
         PortRef producer = portOwner.lookup(channel.getInputPort());
         PortRef consumer = portOwner.lookup(channel.getOutputPort());
 
-        std::string chanName = "ch" + std::to_string(channelCounter++);
-        uint64_t tokenSize =
-            dataLayout.getTypeSize(channel.getTokenType()).getFixedValue();
-
-        MocasinChannelDef chanDef;
-        chanDef.src = {producer.leafName, producer.portName};
-        chanDef.dst = {consumer.leafName, consumer.portName};
-        chanDef.tokenSize = tokenSize;
-        doc.graph.channels.emplace(chanName, std::move(chanDef));
-
-        // No prefilled tokens: `dfg.channel` has no initial-value concept
-        // (only an optional buffer capacity), so every channel starts empty.
-        doc.execution.channels.emplace(chanName, ChannelExec{0});
+        addChannel(channel.getTokenType(), producer, consumer, doc);
     }
 }
 
-void MocasinEmitter::emitModule(
-    ModuleOp module,
-    std::vector<MocasinDocument> &docs)
+LogicalResult
+MocasinEmitter::emitModule(ModuleOp module, std::vector<MocasinDocument> &docs)
 {
     for (auto &opi : module.getBodyRegion().front()) {
         auto regionOp = dyn_cast<RegionOp>(opi);
@@ -382,8 +430,71 @@ void MocasinEmitter::emitModule(
         nameCounters.clear();
         channelCounter = 0;
         flattenRegion(regionOp, /*prefix=*/"", doc, portOwner);
+
+        // Mocasin has no external graph interfaces. Represent every top-level
+        // input and output port as its own synthetic environment process and
+        // connect it to the leaf actor resolved by flattenRegion. These
+        // processes exist only in the emitted YAML; the source DFG is not
+        // modified.
+        for (unsigned i = 0; i < regionOp.getNumInputPorts(); ++i) {
+            Value regionPort = regionOp.getInputPort(i);
+            std::string portName = "in" + std::to_string(i);
+            if (!regionPort.hasOneUse())
+                return regionOp.emitError()
+                       << "cannot export to Mocasin: top-level region '"
+                       << regionOp.getGraphName() << "' input port '"
+                       << portName
+                       << "' must have exactly one consumer inside the region";
+
+            auto consumerIt = portOwner.find(regionPort);
+            if (consumerIt == portOwner.end())
+                return regionOp.emitError()
+                       << "cannot resolve Mocasin consumer for top-level input "
+                          "port '"
+                       << portName << "'";
+
+            PortRef source = addBoundaryProcess(
+                regionOp.getGraphName() + "-" + portName + "-source",
+                /*isSource=*/true,
+                doc);
+            addChannel(
+                cast<OutputType>(regionPort.getType()).getElementType(),
+                source,
+                consumerIt->second,
+                doc);
+        }
+
+        for (unsigned i = 0; i < regionOp.getNumOutputPorts(); ++i) {
+            Value regionPort = regionOp.getOutputPort(i);
+            std::string portName = "out" + std::to_string(i);
+            if (!regionPort.hasOneUse())
+                return regionOp.emitError()
+                       << "cannot export to Mocasin: top-level region '"
+                       << regionOp.getGraphName() << "' output port '"
+                       << portName
+                       << "' must have exactly one producer inside the region";
+
+            auto producerIt = portOwner.find(regionPort);
+            if (producerIt == portOwner.end())
+                return regionOp.emitError()
+                       << "cannot resolve Mocasin producer for top-level "
+                          "output port '"
+                       << portName << "'";
+
+            PortRef sink = addBoundaryProcess(
+                regionOp.getGraphName() + "-" + portName + "-sink",
+                /*isSource=*/false,
+                doc);
+            addChannel(
+                cast<InputType>(regionPort.getType()).getElementType(),
+                producerIt->second,
+                sink,
+                doc);
+        }
+
         docs.push_back(std::move(doc));
     }
+    return success();
 }
 
 /// Translates a `dfg` graph to Mocasin's native YAML application format.
@@ -402,7 +513,7 @@ LogicalResult dfg::translateDFGToMocasinYAML(Operation* op, raw_ostream &os)
     DataLayout dataLayout(module);
     MocasinEmitter emitter(dataLayout);
     std::vector<MocasinDocument> docs;
-    emitter.emitModule(module, docs);
+    if (failed(emitter.emitModule(module, docs))) return failure();
 
     llvm::yaml::Output yout(os);
     for (auto &doc : docs) yout << doc;
