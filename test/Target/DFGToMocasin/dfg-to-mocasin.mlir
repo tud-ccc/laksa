@@ -5,18 +5,14 @@
 // CHECK-NEXT: processes:
 // CHECK-NEXT: child.relay:
 // CHECK-NEXT:   ports:
-// CHECK-NEXT:     in:
-// CHECK-NEXT:       - in0
-// CHECK-NEXT:     out:
-// CHECK-NEXT:       - out0
+// CHECK-NEXT:     in:{{ *}}[ in0 ]
+// CHECK-NEXT:     out:{{ *}}[ out0 ]
 // CHECK-NEXT: child.source:
 // CHECK-NEXT:   ports:
-// CHECK-NEXT:     out:
-// CHECK-NEXT:       - out0
+// CHECK-NEXT:     out:{{ *}}[ out0 ]
 // CHECK-NEXT: sink:
 // CHECK-NEXT:   ports:
-// CHECK-NEXT:     in:
-// CHECK-NEXT:       - in0
+// CHECK-NEXT:     in:{{ *}}[ in0 ]
 // CHECK-NEXT: channels:
 // CHECK-NEXT: ch0:
 // CHECK-NEXT:   src:{{ *}}{ process: child.source, port: out0 }
@@ -42,19 +38,15 @@
 // CHECK-NEXT:     child.relay:
 // CHECK-NEXT:       model:{{ *}}static
 // CHECK-NEXT:       profile:{{ *}}relay
-// CHECK-NEXT:       rates:
-// CHECK-NEXT:         in0:{{ *}}1
-// CHECK-NEXT:         out0:{{ *}}1
+// CHECK-NEXT:       rates:{{ *}}{ in0: 1, out0: 1 }
 // CHECK-NEXT:     child.source:
 // CHECK-NEXT:       model:{{ *}}static
 // CHECK-NEXT:       profile:{{ *}}source
-// CHECK-NEXT:       rates:
-// CHECK-NEXT:         out0:{{ *}}1
+// CHECK-NEXT:       rates:{{ *}}{ out0: 1 }
 // CHECK-NEXT:     sink:
 // CHECK-NEXT:       model:{{ *}}static
 // CHECK-NEXT:       profile:{{ *}}sink
-// CHECK-NEXT:       rates:
-// CHECK-NEXT:         in0:{{ *}}1
+// CHECK-NEXT:       rates:{{ *}}{ in0: 1 }
 // CHECK-NEXT: channels:
 // CHECK-NEXT:   ch0:
 // CHECK-NEXT:     initial_tokens:{{ *}}0

@@ -36,9 +36,18 @@ namespace {
 /// `ProcessOp::getAsmBlockArgumentNames`), so port names are synthesized
 /// positionally as `in0`, `in1`, ..., `out0`, `out1`, ..., the same
 /// convention the pretty-printer already uses.
+struct MocasinPortList {
+    std::vector<std::string> values;
+
+    auto begin() { return values.begin(); }
+    auto end() { return values.end(); }
+    std::string &operator[](size_t index) { return values[index]; }
+    void push_back(std::string value) { values.push_back(std::move(value)); }
+};
+
 struct MocasinPorts {
-    std::vector<std::string> in;
-    std::vector<std::string> out;
+    MocasinPortList in;
+    MocasinPortList out;
 };
 
 /// A process entry in `graph.processes`: just its `ports` today, but a
@@ -61,6 +70,12 @@ struct MocasinChannelDef {
     uint64_t tokenSize = 0;
 };
 
+struct MocasinRates {
+    std::map<std::string, int64_t> values;
+
+    int64_t &operator[](const std::string &port) { return values[port]; }
+};
+
 struct MocasinGraphSection {
     std::map<std::string, MocasinProcessDef> processes;
     std::map<std::string, MocasinChannelDef> channels;
@@ -78,7 +93,7 @@ using CyclesByProcessor = std::map<std::string, CyclesEntry>;
 struct MocasinInstance {
     std::string model = "static";
     std::string profile;
-    std::map<std::string, int64_t> rates;
+    MocasinRates rates;
 };
 
 struct ChannelExec {
@@ -115,10 +130,23 @@ LLVM_YAML_IS_STRING_MAP(MocasinChannelDef)
 LLVM_YAML_IS_STRING_MAP(CyclesEntry)
 LLVM_YAML_IS_STRING_MAP(CyclesByProcessor)
 LLVM_YAML_IS_STRING_MAP(MocasinInstance)
-LLVM_YAML_IS_STRING_MAP(int64_t)
 LLVM_YAML_IS_STRING_MAP(ChannelExec)
 
 namespace llvm::yaml {
+
+template<>
+struct SequenceTraits<MocasinPortList> {
+    static const bool flow = true;
+
+    static size_t size(IO &, MocasinPortList &ports)
+    { return ports.values.size(); }
+
+    static std::string &element(IO &, MocasinPortList &ports, size_t index)
+    {
+        if (index >= ports.values.size()) ports.values.resize(index + 1);
+        return ports.values[index];
+    }
+};
 
 template<>
 struct MappingTraits<MocasinPorts> {
@@ -142,6 +170,22 @@ struct MappingTraits<MocasinEndpoint> {
     {
         io.mapRequired("process", e.process);
         io.mapRequired("port", e.port);
+    }
+};
+
+template<>
+struct MappingTraits<MocasinRates> {
+    static const bool flow = true;
+
+    static void mapping(IO &io, MocasinRates &rates)
+    {
+        if (io.outputting()) {
+            for (auto &[port, rate] : rates.values) io.mapRequired(port, rate);
+            return;
+        }
+
+        for (StringRef port : io.keys())
+            io.mapRequired(port, rates.values[port.str()]);
     }
 };
 
