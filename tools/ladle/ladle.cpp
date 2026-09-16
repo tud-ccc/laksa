@@ -51,7 +51,11 @@ const char* const usage =
     "                         --translation\n"
     "      --mocasin          Run the DFG extraction pipeline and translate\n"
     "                         the resulting graph to Mocasin YAML. Cannot be\n"
-    "                         combined with --hls, --passes, or\n"
+    "                         combined with --hls, --dot, --passes, or\n"
+    "                         --translation\n"
+    "      --dot              Run the DFG extraction pipeline and translate\n"
+    "                         the resulting graph to Graphviz DOT. Cannot be\n"
+    "                         combined with --hls, --mocasin, --passes, or\n"
     "                         --translation\n"
     "      --num-bram=<n>     With --hls, the number of BRAMs the pragma DSE\n"
     "                         may use (default: 288)\n"
@@ -106,6 +110,7 @@ const PassDebugType laksaPassDebugTypes[] = {
 const char* const hlsPipeline = "convert-to-emithls";
 const char* const dfgPipeline = "convert-to-dfg";
 const char* const mocasinTranslation = "dfg-to-mocasin";
+const char* const dotTranslation = "dfg-to-dot";
 /// The EmitHLS IR --hls leaves behind next to the generated artifacts.
 const char* const hlsIRFilename = "hls.mlir";
 /// The scalar reference implementation comes from the same input lowered to
@@ -151,6 +156,7 @@ struct Options {
     std::string translation;
     bool hls = false;
     bool mocasin = false;
+    bool dot = false;
     std::optional<unsigned> numBRAM;
     std::optional<unsigned> numDSP;
     unsigned verbosity = 0;
@@ -202,6 +208,10 @@ Options parseArgs(int argc, char** argv)
         }
         if (arg == "--mocasin") {
             opts.mocasin = true;
+            continue;
+        }
+        if (arg == "--dot") {
+            opts.dot = true;
             continue;
         }
         if (arg.size() >= 2 && arg[0] == '-' && arg[1] != '-'
@@ -257,16 +267,29 @@ Options parseArgs(int argc, char** argv)
     }
 
     if (opts.mocasin
-        && (opts.hls || !opts.passes.empty() || !opts.translation.empty())) {
+        && (opts.hls || opts.dot || !opts.passes.empty()
+            || !opts.translation.empty())) {
         errs() << "ladle: '--mocasin' brings its own pipeline and translation; "
-                  "it cannot be combined with '--hls', '--passes', or "
-                  "'--translation'\n";
+                  "it cannot be combined with '--hls', '--dot', '--passes', "
+                  "or '--translation'\n";
+        exit(1);
+    }
+    if (opts.dot
+        && (opts.hls || opts.mocasin || !opts.passes.empty()
+            || !opts.translation.empty())) {
+        errs() << "ladle: '--dot' brings its own pipeline and translation; it "
+                  "cannot be combined with '--hls', '--mocasin', '--passes', "
+                  "or '--translation'\n";
         exit(1);
     }
 
     if (opts.mocasin) {
         opts.passes = dfgPipeline;
         opts.translation = mocasinTranslation;
+    }
+    if (opts.dot) {
+        opts.passes = dfgPipeline;
+        opts.translation = dotTranslation;
     }
 
     if (!opts.hls && (opts.numBRAM || opts.numDSP)) {
@@ -469,7 +492,7 @@ int main(int argc, char** argv)
 
     if (!opts.hls && !runOpt && !runTranslate) {
         errs() << "ladle: nothing to do; specify --passes, --translation, "
-                  "--hls, and/or --mocasin\n";
+                  "--hls, --mocasin, and/or --dot\n";
         return 1;
     }
 
