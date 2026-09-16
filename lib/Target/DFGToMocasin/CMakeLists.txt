@@ -4,6 +4,7 @@ add_mlir_translation_library(MLIRTargetDFGToMocasin
 
     LINK_LIBS PUBLIC
         MLIRIR
+        MLIRRegisterAllDialects
         MLIRSupport
         MLIRTranslateLib
         DFGIR
