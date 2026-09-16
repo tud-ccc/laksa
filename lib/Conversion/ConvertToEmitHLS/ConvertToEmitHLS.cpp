@@ -5,13 +5,12 @@
 
 #include "laksa-mlir/Conversion/ConvertToEmitHLS/ConvertToEmitHLS.h"
 
+#include "laksa-mlir/Conversion/ConvertToDFG/ConvertToDFG.h"
 #include "laksa-mlir/Conversion/Passes.h"
 #include "laksa-mlir/Dialect/DFG/Transforms/Passes.h"
 #include "laksa-mlir/Dialect/EmitHLS/Transforms/Passes.h"
-#include "laksa-mlir/Dialect/Func/Transforms/Passes.h"
 #include "laksa-mlir/Dialect/Linalg/Transforms/Passes.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
-#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
 
@@ -41,13 +40,7 @@ void mlir::laksa::addConvertToEmitHLSPasses(
     int64_t availableBRAM,
     int64_t availableDSP)
 {
-    pm.addPass(linalg::createLinalgSoftTransposePass());
-    pm.addPass(createLinalgGeneralizeNamedOpsPass());
-    pm.addPass(linalg::createLinalgScalarizeSplatDensePass());
-    pm.addPass(createLinalgInlineScalarOperandsPass());
-    pm.nest("func.func").addPass(func::createFuncOutlineComputationLeafPass());
-    pm.addPass(createConvertFuncToDFGPass());
-    pm.addPass(dfg::createDFGChannelFanoutExpansionPass());
+    addConvertToDFGPasses(pm);
     pm.addPass(dfg::createDFGOperatorToProcessPass());
     pm.addPass(bufferization::createOneShotBufferizePass());
     pm.addPass(createCanonicalizerPass());

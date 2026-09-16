@@ -1,5 +1,5 @@
-add_mlir_conversion_library(ConvertToEmitHLS
-    ConvertToEmitHLS.cpp
+add_mlir_conversion_library(ConvertToDFG
+    ConvertToDFG.cpp
 
     DEPENDS
         LAKSAConversionIncGen
@@ -8,6 +8,5 @@ add_mlir_conversion_library(ConvertToEmitHLS
         Core
 
     LINK_LIBS PUBLIC
-        ConvertToDFG
         MLIRPass
 )
