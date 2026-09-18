@@ -46,6 +46,32 @@ def build_copy_into_cast(
     return func_op
 
 
+def build_copy_into_subview(
+    name, source_type, target_type, offsets, sizes, strides
+) -> func.FuncOp:
+    func_op = func.FuncOp(name, FunctionType.get([source_type, target_type], []))
+    block = func_op.add_entry_block()
+    with InsertionPoint(block):
+        source, target = block.arguments
+        view = memref.subview(target, offsets, sizes, strides)
+        memref.CopyOp(source, view)
+        func.ReturnOp([])
+    return func_op
+
+
+def build_copy_from_subview(
+    name, source_type, target_type, offsets, sizes, strides
+) -> func.FuncOp:
+    func_op = func.FuncOp(name, FunctionType.get([source_type, target_type], []))
+    block = func_op.add_entry_block()
+    with InsertionPoint(block):
+        source, target = block.arguments
+        view = memref.subview(source, offsets, sizes, strides)
+        memref.CopyOp(view, target)
+        func.ReturnOp([])
+    return func_op
+
+
 def main() -> None:
     ctx = Context()
 
@@ -109,6 +135,22 @@ def main() -> None:
                 0,
                 [4, 8],
                 [16, 1],
+            )
+            build_copy_into_subview(
+                "subview_target",
+                MemRefType.get([2, 3], i8),
+                MemRefType.get([5, 7], i8),
+                [1, 2],
+                [2, 3],
+                [1, 1],
+            )
+            build_copy_from_subview(
+                "strided_subview_source",
+                MemRefType.get([6, 8], i8),
+                MemRefType.get([2, 3], i8),
+                [1, 0],
+                [2, 3],
+                [2, 2],
             )
 
         print(module)

@@ -88,3 +88,42 @@ func.func @stepped(%src: memref<8x8xi8>, %dst: memref<4x8xi8>) {
   memref.copy %c, %dst : memref<4x8xi8, strided<[16, 1]>> to memref<4x8xi8>
   return
 }
+
+// CHECK-LABEL: func.func @subview_target
+// CHECK-NOT:     memref.subview
+// CHECK-NOT:     memref.copy
+// CHECK-DAG:     %[[ZERO:.*]] = arith.constant 0 : index
+// CHECK-DAG:     %[[ONE:.*]] = arith.constant 1 : index
+// CHECK-DAG:     %[[TWO:.*]] = arith.constant 2 : index
+// CHECK-DAG:     %[[THREE:.*]] = arith.constant 3 : index
+// CHECK:         scf.for %[[I:.*]] = %[[ZERO]] to %[[TWO]]
+// CHECK:           scf.for %[[J:.*]] = %[[ZERO]] to %[[THREE]]
+// CHECK:             %[[V:.*]] = memref.load %{{.*}}[%[[I]], %[[J]]]
+// CHECK:             %[[ROW:.*]] = arith.addi %[[I]], %[[ONE]]
+// CHECK:             %[[COL:.*]] = arith.addi %[[J]], %[[TWO]]
+// CHECK:             memref.store %[[V]], %{{.*}}[%[[ROW]], %[[COL]]]
+func.func @subview_target(%src: memref<2x3xi8>, %dst: memref<5x7xi8>) {
+  %view = memref.subview %dst[1, 2] [2, 3] [1, 1] : memref<5x7xi8> to memref<2x3xi8, strided<[7, 1], offset: 9>>
+  memref.copy %src, %view : memref<2x3xi8> to memref<2x3xi8, strided<[7, 1], offset: 9>>
+  return
+}
+
+// CHECK-LABEL: func.func @strided_subview_source
+// CHECK-NOT:     memref.subview
+// CHECK-NOT:     memref.copy
+// CHECK-DAG:     %[[ZERO:.*]] = arith.constant 0 : index
+// CHECK-DAG:     %[[ONE:.*]] = arith.constant 1 : index
+// CHECK-DAG:     %[[TWO:.*]] = arith.constant 2 : index
+// CHECK-DAG:     %[[THREE:.*]] = arith.constant 3 : index
+// CHECK:         scf.for %[[I:.*]] = %[[ZERO]] to %[[TWO]]
+// CHECK:           scf.for %[[J:.*]] = %[[ZERO]] to %[[THREE]]
+// CHECK:             %[[ROW:.*]] = arith.muli %[[I]], %[[TWO]]
+// CHECK:             %[[SRC_ROW:.*]] = arith.addi %[[ROW]], %[[ONE]]
+// CHECK:             %[[COL:.*]] = arith.muli %[[J]], %[[TWO]]
+// CHECK:             %[[V:.*]] = memref.load %{{.*}}[%[[SRC_ROW]], %[[COL]]]
+// CHECK:             memref.store %[[V]], %{{.*}}[%[[I]], %[[J]]]
+func.func @strided_subview_source(%src: memref<6x8xi8>, %dst: memref<2x3xi8>) {
+  %view = memref.subview %src[1, 0] [2, 3] [2, 2] : memref<6x8xi8> to memref<2x3xi8, strided<[16, 2], offset: 8>>
+  memref.copy %view, %dst : memref<2x3xi8, strided<[16, 2], offset: 8>> to memref<2x3xi8>
+  return
+}
