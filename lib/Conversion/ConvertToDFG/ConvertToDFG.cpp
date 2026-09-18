@@ -16,13 +16,18 @@
 
 using namespace mlir;
 
-void mlir::laksa::addConvertToDFGPasses(OpPassManager &pm)
+void mlir::laksa::addComputationNodeOutliningPasses(OpPassManager &pm)
 {
     pm.addPass(linalg::createLinalgSoftTransposePass());
     pm.addPass(createLinalgGeneralizeNamedOpsPass());
     pm.addPass(linalg::createLinalgScalarizeSplatDensePass());
     pm.addPass(createLinalgInlineScalarOperandsPass());
     pm.nest("func.func").addPass(func::createFuncOutlineComputationLeafPass());
+}
+
+void mlir::laksa::addConvertToDFGPasses(OpPassManager &pm)
+{
+    addComputationNodeOutliningPasses(pm);
     pm.addPass(createConvertFuncToDFGPass());
     pm.addPass(dfg::createDFGChannelFanoutExpansionPass());
 }
