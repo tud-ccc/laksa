@@ -120,13 +120,13 @@ dfg.process @relu inputs(%in0: !dfg.output<8xi32>) outputs(%out0: !dfg.input<8xi
     }
   }
 }
-// CHECK-LABEL: emithls.func @kernel(%arg0: !emithls.array<8x!emithls.stream<i8>>, %arg1: !emithls.array<8x!emithls.stream<i8>>)
+// CHECK-LABEL: emithls.func @kernel(%arg0: !emithls.array<8x!emithls.stream<i8>>, %arg1: !emithls.array<8x!emithls.stream<i8>>) attributes {laksa.root}
 // CHECK: %[[CHAN0:.*]] = emithls.variable as !emithls.array<8x!emithls.stream<i8>>
 // CHECK: %[[CHAN1:.*]] = emithls.variable as !emithls.array<8x!emithls.stream<i32>>
 // CHECK: emithls.call @pad(%arg0, %[[CHAN0]])
 // CHECK: emithls.call @conv(%[[CHAN0]], %[[CHAN1]])
 // CHECK: emithls.call @relu(%[[CHAN1]], %arg1)
-dfg.region @kernel inputs(%in0: !dfg.output<8xi8>) outputs(%out0: !dfg.input<8xi8>) {
+dfg.region @kernel inputs(%in0: !dfg.output<8xi8>) outputs(%out0: !dfg.input<8xi8>) attributes {laksa.root} {
   %in_port_0, %out_port_0 = dfg.channel() : 8xi8
   %in_port_1, %out_port_1 = dfg.channel() : 8xi32
   dfg.instantiate @pad inputs(%in0) outputs(%in_port_0) : (!dfg.output<8xi8>) -> !dfg.input<8xi8>

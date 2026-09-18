@@ -7,6 +7,7 @@
 #include "laksa-mlir/Dialect/DFG/IR/DFGOps.h"
 #include "laksa-mlir/Dialect/DFG/Transforms/Passes.h"
 #include "laksa-mlir/Dialect/EmitHLS/IR/EmitHLS.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/PatternMatch.h"
@@ -797,6 +798,8 @@ LogicalResult RegionRewriter::rewrite(IRRewriter &rewriter)
     if (failed(bodyResult)) return failure();
 
     LAKSA_DEBUG(llvm::dbgs() << "  replaced region body");
+    if (Attribute rootAttr = op->getAttr(laksa::kRootAttrName))
+        newRegionOp->setAttr(laksa::kRootAttrName, rootAttr);
     rewriter.replaceOp(op, newRegionOp);
     return success();
 }

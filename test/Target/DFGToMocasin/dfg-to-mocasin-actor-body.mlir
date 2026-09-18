@@ -20,7 +20,7 @@ dfg.operator @source outputs(%out: i32) {
 
 dfg.process @sink inputs(%in: !dfg.output<i32>)
 
-dfg.region @graph {
+dfg.region @graph attributes {laksa.root} {
     %channel:2 = dfg.channel() : i32
     dfg.instantiate @source outputs(%channel#0) : () -> !dfg.input<i32>
     dfg.instantiate @sink inputs(%channel#1) : (!dfg.output<i32>) -> ()

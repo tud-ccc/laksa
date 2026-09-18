@@ -15,6 +15,7 @@ from mlir_laksa.ir import (
     MemRefType,
     Module,
     TypeAttr,
+    UnitAttr,
 )
 from mlir_laksa.dialects import dfg, emithls, memref
 import mlir_laksa.conversion as conversion
@@ -310,6 +311,7 @@ def build_kernel(i8, i32) -> dfg.RegionOp:
     region_op = dfg.RegionOp(
         "kernel", TypeAttr.get(FunctionType.get([in_type], [out_type]))
     )
+    region_op.operation.attributes["laksa.root"] = UnitAttr.get()
     block = region_op.body.blocks.append(in_type, out_type)
     with InsertionPoint(block):
         in0, out0 = block.arguments

@@ -69,7 +69,7 @@ dfg.region @child outputs(%out: !dfg.input<i32>)
     dfg.instantiate @relay inputs(%0#1) outputs(%out) : (!dfg.output<i32>) -> !dfg.input<i32>
 }
 
-dfg.region @parent
+dfg.region @parent attributes {laksa.root}
 {
     %1:2 = dfg.channel() : i32
     dfg.embed @child outputs(%1#0) : () -> !dfg.input<i32>

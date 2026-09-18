@@ -31,6 +31,7 @@
 // Wrapper: two calls forwarding each block arg, returning both results.
 // CHECK-LABEL: func.func @test_top(
 // CHECK-SAME:    %[[A0:.*]]: tensor<4xf32>, %[[A1:.*]]: tensor<4x4xf32>
+// CHECK:         laksa.root
 // CHECK:         %[[R0:.*]] = call @test_node_0(%[[A0]])
 // CHECK:         %[[R1:.*]] = call @test_node_1(%[[A1]])
 // CHECK:         return %[[R0]], %[[R1]]

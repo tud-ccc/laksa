@@ -33,7 +33,7 @@ dfg.region @child inputs(%in: !dfg.output<i32>) outputs(%out: !dfg.input<i32>)
         : (!dfg.output<i32>) -> !dfg.input<i32>
 }
 
-dfg.region @parent inputs(%in: !dfg.output<i32>) outputs(%out: !dfg.input<i32>)
+dfg.region @parent inputs(%in: !dfg.output<i32>) outputs(%out: !dfg.input<i32>) attributes {laksa.root}
 {
     %0:2 = dfg.channel() : i32
     dfg.embed @child inputs(%in) outputs(%0#0)

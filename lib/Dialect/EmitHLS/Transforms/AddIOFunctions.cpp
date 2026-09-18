@@ -4,6 +4,7 @@
 // @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
 
 #include "laksa-mlir/Dialect/EmitHLS/IR/EmitHLS.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -539,6 +540,8 @@ struct AddIOFunctions : public OpConversionPattern<FuncOp> {
         rewriter.setInsertionPoint(op);
         auto newFuncOp =
             FuncOp::create(rewriter, loc, op.getSymName(), newFuncType);
+        if (Attribute rootAttr = op->getAttr(laksa::kRootAttrName))
+            newFuncOp->setAttr(laksa::kRootAttrName, rootAttr);
         LAKSA_DEBUG(
             llvm::dbgs()
             << "Rebuilding top function \"" << op.getSymName() << "\"");
@@ -622,14 +625,10 @@ void EmitHLSAddIOFunctionsPass::runOnOperation()
     target.addLegalDialect<EmitHLSDialect>();
     target.markUnknownOpDynamicallyLegal([](Operation*) { return true; });
 
-    // A function whose body only declares variables and issues calls is the top
-    // function's driver: it just wires up local state and forwards it into the
-    // real kernel, so its arguments must already be ”emithls.ptr“
+    // Only the root function is the top-level driver whose ports need pointer
+    // interfaces.
     target.addDynamicallyLegalOp<FuncOp>([](FuncOp funcOp) {
-        bool isDriver = llvm::all_of(
-            funcOp.getBody().front(),
-            [](Operation &op) { return isa<VariableOp, CallOp>(op); });
-        if (!isDriver) return true;
+        if (!funcOp->hasAttr(laksa::kRootAttrName)) return true;
         return llvm::all_of(funcOp.getArgumentTypes(), [](Type type) {
             return isa<PointerType>(type);
         });

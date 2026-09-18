@@ -10,6 +10,7 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "laksa-mlir/Dialect/DFG/IR/DFGOps.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "laksa-mlir/Target/DFGToMocasin/MocasinEmitter.h"
 
 #include "llvm/ADT/DenseMap.h"
@@ -464,9 +465,14 @@ void MocasinEmitter::flattenRegion(
 LogicalResult
 MocasinEmitter::emitModule(ModuleOp module, std::vector<MocasinDocument> &docs)
 {
+    unsigned rootCount = 0;
     for (auto &opi : module.getBodyRegion().front()) {
         auto regionOp = dyn_cast<RegionOp>(opi);
-        if (!regionOp || regionOp.isSubGraph()) continue;
+        if (!regionOp || !regionOp->hasAttr(laksa::kRootAttrName)) continue;
+        if (++rootCount > 1)
+            return module.emitError(
+                "cannot export to Mocasin: expected exactly one operation "
+                "marked 'laksa.root'");
 
         MocasinDocument doc;
         doc.name = regionOp.getGraphName();
@@ -538,6 +544,10 @@ MocasinEmitter::emitModule(ModuleOp module, std::vector<MocasinDocument> &docs)
 
         docs.push_back(std::move(doc));
     }
+    if (rootCount == 0)
+        return module.emitError(
+            "cannot export to Mocasin: expected exactly one operation marked "
+            "'laksa.root'");
     return success();
 }
 

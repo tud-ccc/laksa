@@ -4,6 +4,7 @@
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
 
 #include "laksa-mlir/Dialect/Func/Transforms/Passes.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -363,6 +364,9 @@ struct FuncOutlineComputationLeafPass
         for (auto* op : llvm::reverse(oldOps)) rewriter.eraseOp(op);
 
         funcOp.setSymName(funcOp.getSymName().str() + "_top");
+        funcOp->setAttr(
+            laksa::kRootAttrName,
+            UnitAttr::get(funcOp.getContext()));
 
         LAKSA_DEBUG(
             llvm::dbgs() << "Wrapper '" << funcOp.getSymName() << "' complete");
