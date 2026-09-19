@@ -37,6 +37,8 @@ const char* const usage =
     "                         output directory:\n"
     "                           hls.mlir            the lowered IR\n"
     "                           ref.mlir            the input in emitc\n"
+    "                           profiles_K26_PL_model.yaml\n"
+    "                                               FPGA model profiles\n"
     "                           hw/main.cpp         Vitis HLS input\n"
     "                           hw/run_hls.tcl\n"
     "                           hw/run_vivado.tcl\n"
@@ -153,16 +155,17 @@ struct HLSArtifact {
     const char* filename;
 };
 const HLSArtifact hlsArtifacts[] = {
-    {hlsIRFilename,              "emithls-to-cpp", hlsToolSubdir,       "main.cpp"},
-    {hlsIRFilename,          "emithls-to-hls-tcl", hlsToolSubdir,    "run_hls.tcl"},
-    {hlsIRFilename,       "emithls-to-vivado-tcl", hlsToolSubdir, "run_vivado.tcl"},
-    {hlsIRFilename, "emithls-to-hls-build-script", hlsToolSubdir,       "build.sh"},
-    {hlsIRFilename,     "emithls-to-laksa-header",  hlsAppSubdir,          "app.h"},
-    {hlsIRFilename,        "emithls-to-laksa-app",  hlsAppSubdir,          "app.c"},
-    {hlsIRFilename,        "emithls-to-kria-dtsi",  hlsAppSubdir,       "app.dtsi"},
-    {refIRFilename,                 "mlir-to-cpp",  hlsAppSubdir,          "ref.h"},
-    {refIRFilename,          "emitc-to-laksa-ref",  hlsAppSubdir,          "ref.c"},
-    {hlsIRFilename, "emithls-to-laksa-run-script",  hlsAppSubdir,         "run.sh"},
+    {hlsIRFilename,    "emithls-to-model-profile",            "", "profiles_K26_PL_model.yaml"},
+    {hlsIRFilename,              "emithls-to-cpp", hlsToolSubdir,                   "main.cpp"},
+    {hlsIRFilename,          "emithls-to-hls-tcl", hlsToolSubdir,                "run_hls.tcl"},
+    {hlsIRFilename,       "emithls-to-vivado-tcl", hlsToolSubdir,             "run_vivado.tcl"},
+    {hlsIRFilename, "emithls-to-hls-build-script", hlsToolSubdir,                   "build.sh"},
+    {hlsIRFilename,     "emithls-to-laksa-header",  hlsAppSubdir,                      "app.h"},
+    {hlsIRFilename,        "emithls-to-laksa-app",  hlsAppSubdir,                      "app.c"},
+    {hlsIRFilename,        "emithls-to-kria-dtsi",  hlsAppSubdir,                   "app.dtsi"},
+    {refIRFilename,                 "mlir-to-cpp",  hlsAppSubdir,                      "ref.h"},
+    {refIRFilename,          "emitc-to-laksa-ref",  hlsAppSubdir,                      "ref.c"},
+    {hlsIRFilename, "emithls-to-laksa-run-script",  hlsAppSubdir,                     "run.sh"},
 };
 
 struct Options {
@@ -487,9 +490,16 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         sys::path::append(irPath, artifact.ir);
         SmallString<128> artifactPath(outputDir);
         sys::path::append(artifactPath, artifact.subdir, artifact.filename);
-        errs() << "INFO: Writing " << artifact.subdir << "/"
-               << artifact.filename << " from " << artifact.ir << " through "
-               << artifact.translation << "...\n";
+        SmallString<128> displayPath;
+        if (StringRef(artifact.subdir).empty())
+            displayPath = artifact.filename;
+        else
+            sys::path::append(
+                displayPath,
+                artifact.subdir,
+                artifact.filename);
+        errs() << "INFO: Writing " << displayPath << " from " << artifact.ir
+               << " through " << artifact.translation << "...\n";
         run(opts,
             translatePath,
             {translatePath,
