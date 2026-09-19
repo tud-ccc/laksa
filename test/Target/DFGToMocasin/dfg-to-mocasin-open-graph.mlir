@@ -19,6 +19,22 @@
 // CHECK-NEXT:   src:{{ *}}{ process: relay, port: out0 }
 // CHECK-NEXT:   dst:{{ *}}{ process: parent-out0-sink, port: in0 }
 // CHECK-NEXT:   token_size:{{ *}}4
+// CHECK: execution:
+// CHECK-NEXT: processes:
+// CHECK-NEXT:   profiles:
+// CHECK-NEXT:     boundary:
+// CHECK-NEXT:       UNKNOWN:
+// CHECK-NEXT:         cycles:{{ *}}0
+// CHECK-NEXT:     relay:
+// CHECK-NEXT:       UNKNOWN:
+// CHECK-NEXT:         cycles:{{ *}}0
+// CHECK:   instances:
+// CHECK:     parent-in0-source:
+// CHECK-NEXT:       model:{{ *}}static
+// CHECK-NEXT:       profile:{{ *}}boundary
+// CHECK:     parent-out0-sink:
+// CHECK-NEXT:       model:{{ *}}static
+// CHECK-NEXT:       profile:{{ *}}boundary
 // CHECK: channels:
 // CHECK: ch1:
 // CHECK-NEXT:     initial_tokens:{{ *}}0

@@ -2,6 +2,7 @@
 ///
 /// @file
 /// @author     Giuseppe Meloni (giuseppe.meloni@abinsula.com)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Operation.h"
@@ -25,6 +26,10 @@ using namespace mlir;
 using namespace mlir::dfg;
 
 namespace {
+
+/// Shared by all synthesized source/sink processes so the target platform can
+/// assign their processor type and cycle count once during profile composition.
+constexpr StringLiteral kBoundaryProfileName = "boundary";
 
 /// Mocasin's native YAML application format: a `graph` section describing
 /// process ports and channel topology, and an `execution` section describing
@@ -342,11 +347,11 @@ PortRef MocasinEmitter::addBoundaryProcess(
         MocasinProcessDef{std::move(ports)});
 
     MocasinInstance instance;
-    instance.profile = processName;
+    instance.profile = kBoundaryProfileName.str();
     instance.rates[portName] = 1;
     doc.execution.processes.instances.emplace(processName, std::move(instance));
     doc.execution.processes.profiles.emplace(
-        processName,
+        kBoundaryProfileName.str(),
         CyclesByProcessor{
             {"UNKNOWN", CyclesEntry{0}}
     });
