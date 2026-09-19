@@ -25,8 +25,8 @@ const char* const usage =
     "output file through an optional pass pipeline and/or translation.\n\n"
     "Usage: ladle [options] <input file>\n\n"
     "Options:\n"
-    "  -o, --output=<file>    Output filename (default: null); with --hls,\n"
-    "                         the directory to write the artifacts into\n"
+    "  -o, --output=<file>    Output filename (default: null); with --hls or\n"
+    "                         --cpu-profile, the artifact directory\n"
     "                         (default: the current directory)\n"
     "  -p, --passes=<value>   Passes to run through laksa-opt\n"
     "  -t, --translation=<name>\n"
@@ -49,6 +49,14 @@ const char* const usage =
     "                           app/run.sh          loads and checks it\n"
     "                         Cannot be combined with --passes or\n"
     "                         --translation\n"
+    "      --cpu-profile      Generate one native benchmark containing all\n"
+    "                         outlined DFG nodes and prepare a cpu\n"
+    "                         directory with artifacts to transfer to the\n"
+    "                         target platform. Run ./run.sh there to write\n"
+    "                         per-node cycle counts to\n"
+    "                         profiles_<processor-type>.yaml.\n"
+    "                         Cannot be combined with another built-in flow,\n"
+    "                         --passes, or --translation\n"
     "      --mocasin          Run the DFG extraction pipeline and translate\n"
     "                         the resulting graph to Mocasin YAML. Cannot be\n"
     "                         combined with --hls, --dot, --passes, or\n"
@@ -111,6 +119,14 @@ const char* const hlsPipeline = "convert-to-emithls";
 const char* const dfgPipeline = "convert-to-dfg";
 const char* const mocasinTranslation = "dfg-to-mocasin";
 const char* const dotTranslation = "dfg-to-dot";
+const char* const cpuProfilePipeline = "convert-to-laksa-cpu-profile";
+const char* const cpuProfileTranslation = "emitc-to-cpu-profile";
+const char* const cpuProfileNodesTranslation =
+    "emitc-to-cpu-profile-nodes";
+const char* const cpuProfileRunScriptTranslation =
+    "emitc-to-cpu-profile-run-script";
+const char* const cpuProfileIRFilename = "cpu.mlir";
+const char* const cpuProfileSubdir = "cpu";
 /// The EmitHLS IR --hls leaves behind next to the generated artifacts.
 const char* const hlsIRFilename = "hls.mlir";
 /// The scalar reference implementation comes from the same input lowered to
@@ -155,6 +171,7 @@ struct Options {
     std::string passes;
     std::string translation;
     bool hls = false;
+    bool cpuProfile = false;
     bool mocasin = false;
     bool dot = false;
     std::optional<unsigned> numBRAM;
@@ -204,6 +221,10 @@ Options parseArgs(int argc, char** argv)
         }
         if (arg == "--hls") {
             opts.hls = true;
+            continue;
+        }
+        if (arg == "--cpu-profile") {
+            opts.cpuProfile = true;
             continue;
         }
         if (arg == "--mocasin") {
@@ -260,26 +281,38 @@ Options parseArgs(int argc, char** argv)
         }
     }
 
-    if (opts.hls && (!opts.passes.empty() || !opts.translation.empty())) {
+    if (opts.hls
+        && (opts.cpuProfile || opts.mocasin || opts.dot || !opts.passes.empty()
+            || !opts.translation.empty())) {
         errs() << "ladle: '--hls' brings its own pipeline and translations; "
-                  "it cannot be combined with '--passes' or '--translation'\n";
+                  "it cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
+        exit(1);
+    }
+
+    if (opts.cpuProfile
+        && (opts.hls || opts.mocasin || opts.dot || !opts.passes.empty()
+            || !opts.translation.empty())) {
+        errs() << "ladle: '--cpu-profile' brings its own pipeline and "
+                  "translations; it cannot be combined with another "
+                  "built-in flow, '--passes', or '--translation'\n";
         exit(1);
     }
 
     if (opts.mocasin
-        && (opts.hls || opts.dot || !opts.passes.empty()
+        && (opts.hls || opts.cpuProfile || opts.dot || !opts.passes.empty()
             || !opts.translation.empty())) {
         errs() << "ladle: '--mocasin' brings its own pipeline and translation; "
-                  "it cannot be combined with '--hls', '--dot', '--passes', "
-                  "or '--translation'\n";
+                  "it cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
         exit(1);
     }
     if (opts.dot
-        && (opts.hls || opts.mocasin || !opts.passes.empty()
+        && (opts.hls || opts.cpuProfile || opts.mocasin || !opts.passes.empty()
             || !opts.translation.empty())) {
         errs() << "ladle: '--dot' brings its own pipeline and translation; it "
-                  "cannot be combined with '--hls', '--mocasin', '--passes', "
-                  "or '--translation'\n";
+                  "cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
         exit(1);
     }
 
@@ -481,6 +514,78 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
     return 0;
 }
 
+/// Outlines the same leaf computations that become DFG processes, lowers each
+/// leaf to EmitC, and generates a self-contained native benchmark directory.
+int runCPUProfileFlow(const Options &opts, StringRef selfDir)
+{
+    StringRef outputDir =
+        opts.outputFilename == "-" ? StringRef(".") : opts.outputFilename;
+    SmallString<128> cpuDir(outputDir);
+    sys::path::append(cpuDir, cpuProfileSubdir);
+    if (auto ec = sys::fs::create_directories(cpuDir)) {
+        errs() << "ladle: failed to create output directory '" << cpuDir
+               << "': " << ec.message() << "\n";
+        return 1;
+    }
+
+    std::string optPath = findTool("laksa-opt", selfDir);
+    std::string translatePath = findTool("laksa-translate", selfDir);
+
+    SmallString<128> irPath(outputDir);
+    sys::path::append(irPath, cpuProfileIRFilename);
+    errs() << "INFO: Outlining CPU processes and lowering them to EmitC...\n";
+    run(opts,
+        optPath,
+        buildOptArgs(
+            opts,
+            optPath,
+            cpuProfilePipeline,
+            opts.inputFilename,
+            irPath));
+
+    SmallString<128> nodesPath(cpuDir);
+    sys::path::append(nodesPath, "nodes.cpp");
+    run(opts,
+        translatePath,
+        {translatePath,
+         std::string(irPath),
+         asFlag(cpuProfileNodesTranslation),
+         "-o",
+         std::string(nodesPath)});
+
+    SmallString<128> benchmarkPath(cpuDir);
+    sys::path::append(benchmarkPath, "benchmark.cpp");
+    run(opts,
+        translatePath,
+        {translatePath,
+         std::string(irPath),
+         asFlag(cpuProfileTranslation),
+         "-o",
+         std::string(benchmarkPath)});
+
+    SmallString<128> runScriptPath(cpuDir);
+    sys::path::append(runScriptPath, "run.sh");
+    run(opts,
+        translatePath,
+        {translatePath,
+         std::string(irPath),
+         asFlag(cpuProfileRunScriptTranslation),
+         "-o",
+         std::string(runScriptPath)});
+    if (auto ec = sys::fs::setPermissions(
+            runScriptPath,
+            sys::fs::perms::all_read | sys::fs::perms::owner_write
+                | sys::fs::perms::all_exe)) {
+        errs() << "ladle: failed to make '" << runScriptPath
+               << "' executable: " << ec.message() << "\n";
+        return 1;
+    }
+
+    errs() << "INFO: Done, copy '" << cpuDir
+           << "' to the target CPU and run ./run.sh\n";
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -490,9 +595,9 @@ int main(int argc, char** argv)
     bool runOpt = !opts.passes.empty();
     bool runTranslate = !opts.translation.empty();
 
-    if (!opts.hls && !runOpt && !runTranslate) {
+    if (!opts.hls && !opts.cpuProfile && !runOpt && !runTranslate) {
         errs() << "ladle: nothing to do; specify --passes, --translation, "
-                  "--hls, --mocasin, and/or --dot\n";
+                  "--hls, --cpu-profile, --mocasin, and/or --dot\n";
         return 1;
     }
 
@@ -500,6 +605,7 @@ int main(int argc, char** argv)
     std::string selfDir = std::string(sys::path::parent_path(mainExe));
 
     if (opts.hls) return runHLSFlow(opts, selfDir);
+    if (opts.cpuProfile) return runCPUProfileFlow(opts, selfDir);
 
     SmallString<128> tempPath;
     bool haveTemp = false;
