@@ -12,6 +12,7 @@ void registerEmitCToCPUProfileRunScriptTranslation();
 void registerEmitCToLaksaRefTranslation();
 void registerEmitHLSToCppTranslation();
 void registerEmitHLSToHLSBuildScriptTranslation();
+void registerEmitHLSToFPGAModelProfileTranslation();
 void registerEmitHLSToHLSTclTranslation();
 void registerEmitHLSToKriaDtsiTranslation();
 void registerEmitHLSToLaksaAppTranslation();
@@ -29,6 +30,7 @@ inline void registerAllLAKSAMLIRTranslations()
         registerEmitCToLaksaRefTranslation();
         registerEmitHLSToCppTranslation();
         registerEmitHLSToHLSBuildScriptTranslation();
+        registerEmitHLSToFPGAModelProfileTranslation();
         registerEmitHLSToHLSTclTranslation();
         registerEmitHLSToKriaDtsiTranslation();
         registerEmitHLSToLaksaAppTranslation();
