@@ -189,6 +189,8 @@ ladle input.mlir --hls -o out_dir
 out_dir/
 ├── hls.mlir            the design, lowered to the EmitHLS dialect
 ├── ref.mlir            the same input lowered to emitc instead
+├── profiles_K26_PL_model.yaml
+│                       per-process cycles from LAKSA's FPGA model
 ├── hw/                 what the build host needs
 │   ├── main.cpp        Vitis HLS input
 │   ├── run_hls.tcl     C synthesis and IP export
@@ -205,6 +207,9 @@ out_dir/
 
 Every `hw/` artifact and most `app/` ones are translated from `hls.mlir`.
 `ref.h` and `ref.c` come from `ref.mlir`, which is the same input lowered without any of the HLS-specific restructuring, so the reference computes what the design is *meant* to compute rather than a re-derivation of what it does.
+`profiles_K26_PL_model.yaml` contains the per-process cycle counts selected by
+the FPGA model used during pragma design-space exploration, in Mocasin's
+`execution.processes.profiles` format.
 
 Each step prints what it is producing, so a failure names the artifact that could not be written.
 
