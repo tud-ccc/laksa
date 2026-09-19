@@ -214,6 +214,48 @@ Each step prints what it is producing, so a failure names the artifact that coul
 ladle input.mlir --hls --num-bram=144 --num-dsp=600 -o out_dir
 ```
 
+### Measuring process latency on a CPU
+
+`--cpu-profile` outlines the same `main_node_N` computations that become DFG
+processes, lowers them through the EmitC backend, and generates one native
+benchmark containing all of them. At present, the generated benchmark is
+intended for CPU profiling on the Kria KV260 platform, whose application
+processing cores are Cortex-A53:
+
+```bash
+ladle input.mlir --cpu-profile -o .
+```
+
+Transfer the generated `cpu/` directory to the target platform. There, build
+and measure every process with one command:
+
+```bash
+cd cpu
+./run.sh
+```
+
+Each process is warmed up and measured independently with
+Linux's hardware CPU-cycle counter. The result is written to
+`profiles_<processor-type>.yaml` as a Mocasin
+`execution.processes.profiles` fragment.
+
+To measure only one process, or tune the sampling:
+
+```bash
+./run.sh --node main_node_3
+./run.sh --warmup 2 --repetitions 10 --samples 9 --cpu 1
+./run.sh --processor-type CortexA53
+```
+
+The default processor type is `CortexA53`, matching the KV260 platform model.
+If the kernel denies access to performance counters, run the same command with
+`sudo` (all options remain unchanged), or adjust the target's
+`perf_event_paranoid` setting:
+
+```bash
+sudo ./run.sh --processor-type CortexA53 --samples 9 --cpu 1
+```
+
 ## Running a design on the board
 
 `hw/` and `app/` are independent and can live on different machines.
