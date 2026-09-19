@@ -1,5 +1,7 @@
 add_subdirectory(DFGToDot)
 add_subdirectory(DFGToMocasin)
+add_subdirectory(EmitCToCPUProfile)
+add_subdirectory(EmitCToCPUProfileRunScript)
 add_subdirectory(EmitCToLaksaRef)
 add_subdirectory(EmitHLSToCpp)
 add_subdirectory(EmitHLSToHLSBuildScript)
