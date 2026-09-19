@@ -2162,6 +2162,10 @@ void attachSolutionAttributes(
         // ordinary node without re-deriving it from the argument types.
         bool isIO = isIOFunction(node->callee);
         if (isIO) node->callee->setAttr("dse.io_func", builder.getUnitAttr());
+        else
+            node->callee->setDiscardableAttr(
+                emithls::kModelCyclesAttrName,
+                builder.getI64IntegerAttr(node->totalCycles.getIntValue()));
 
         // Same, but for a local array: unlike a port, its untouched
         // dimensions aren't all implicitly 1. classifyArrayDims tells apart
