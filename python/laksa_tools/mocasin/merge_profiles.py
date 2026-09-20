@@ -172,6 +172,30 @@ def _parse_boundary(value: str) -> tuple[str, int]:
     return processor_type, cycles
 
 
+def _collect_profile_paths(
+    explicit_paths: Iterable[Path], profiles_dir: Path | None
+) -> list[Path]:
+    paths = list(explicit_paths)
+    if profiles_dir is not None:
+        if not profiles_dir.is_dir():
+            raise ProfileMergeError(
+                f"profile directory '{profiles_dir}' does not exist"
+            )
+        discovered = sorted(profiles_dir.glob("profiles_*.yaml"))
+        if not discovered:
+            raise ProfileMergeError(
+                f"profile directory '{profiles_dir}' contains no "
+                "profiles_*.yaml files"
+            )
+        paths.extend(discovered)
+    if not paths:
+        raise ProfileMergeError(
+            "no profile fragments specified; provide profile files or "
+            "--profiles-dir"
+        )
+    return paths
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -181,7 +205,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("template", type=Path, help="Mocasin application template")
     parser.add_argument(
-        "profiles", type=Path, nargs="+", help="profile fragment YAML files"
+        "profiles", type=Path, nargs="*", help="profile fragment YAML files"
+    )
+    parser.add_argument(
+        "--profiles-dir",
+        type=Path,
+        metavar="DIRECTORY",
+        help="merge profiles_*.yaml files from DIRECTORY",
     )
     parser.add_argument(
         "--boundary",
@@ -200,7 +230,8 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         template = _load_yaml(args.template)
-        fragments = [(str(path), _load_yaml(path)) for path in args.profiles]
+        profile_paths = _collect_profile_paths(args.profiles, args.profiles_dir)
+        fragments = [(str(path), _load_yaml(path)) for path in profile_paths]
         result = merge_profiles(template, fragments, boundary=args.boundary)
         with args.output.open("w", encoding="utf-8") as stream:
             yaml.safe_dump(

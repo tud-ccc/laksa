@@ -184,6 +184,68 @@ class MergeProfilesTest(unittest.TestCase):
                 "warning: unresolved processor profiles remain: boundary\n",
             )
 
+    def test_command_discovers_profile_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            template_path = root / "app.template.yaml"
+            profiles_dir = root / "profiles"
+            output_path = root / "app.yaml"
+            profiles_dir.mkdir()
+            template_path.write_text(yaml.safe_dump(TEMPLATE), encoding="utf-8")
+            (profiles_dir / "profiles_CortexA53.yaml").write_text(
+                yaml.safe_dump(fragment("CortexA53", 120)), encoding="utf-8"
+            )
+            (profiles_dir / "profiles_K26_PL_model.yaml").write_text(
+                yaml.safe_dump(fragment("K26_PL", 30)), encoding="utf-8"
+            )
+
+            self.assertEqual(
+                main(
+                    [
+                        str(template_path),
+                        "--profiles-dir",
+                        str(profiles_dir),
+                        "--boundary",
+                        "CortexA53",
+                        "-o",
+                        str(output_path),
+                    ]
+                ),
+                0,
+            )
+            result = yaml.safe_load(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                result["execution"]["processes"]["profiles"]["node"],
+                {
+                    "CortexA53": {"cycles": 120},
+                    "K26_PL": {"cycles": 30},
+                },
+            )
+
+    def test_command_rejects_empty_profile_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            template_path = root / "app.template.yaml"
+            profiles_dir = root / "profiles"
+            output_path = root / "app.yaml"
+            profiles_dir.mkdir()
+            template_path.write_text(yaml.safe_dump(TEMPLATE), encoding="utf-8")
+
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                status = main(
+                    [
+                        str(template_path),
+                        "--profiles-dir",
+                        str(profiles_dir),
+                        "-o",
+                        str(output_path),
+                    ]
+                )
+
+            self.assertEqual(status, 1)
+            self.assertIn("contains no profiles_*.yaml files", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
