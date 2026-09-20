@@ -2,6 +2,7 @@
 ///
 /// @file
 /// @author     Giuseppe Meloni (giuseppe.meloni@abinsula.com)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #include "mlir/InitAllDialects.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
@@ -18,18 +19,28 @@ namespace mlir {
 
 void registerDFGToMocasinTranslation()
 {
+    auto registerDialects = [](DialectRegistry &registry) {
+        // Actor bodies retain computation dialects after DFG extraction, even
+        // though the exporters only use the graph topology.
+        registerAllDialects(registry);
+        registry.insert<dfg::DFGDialect>();
+    };
+
     TranslateFromMLIRRegistration reg(
         "dfg-to-mocasin",
         "translate DFG graph to the Mocasin YAML input format",
         [](Operation* op, raw_ostream &output) {
             return dfg::translateDFGToMocasinYAML(op, output);
         },
-        [](DialectRegistry &registry) {
-            // Actor bodies retain computation dialects after DFG extraction,
-            // even though the exporter only uses the graph topology.
-            registerAllDialects(registry);
-            registry.insert<dfg::DFGDialect>();
-        });
+        registerDialects);
+
+    TranslateFromMLIRRegistration mergeScriptReg(
+        "dfg-to-mocasin-merge-script",
+        "generate the script that merges Mocasin execution profiles",
+        [](Operation*, raw_ostream &output) {
+            return dfg::emitMocasinMergeScript(output);
+        },
+        registerDialects);
 }
 
 } // namespace mlir
