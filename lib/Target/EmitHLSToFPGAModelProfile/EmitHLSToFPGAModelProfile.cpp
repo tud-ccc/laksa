@@ -48,7 +48,8 @@ LogicalResult emithls::translateEmitHLSToFPGAModelProfile(
             "expected at least one function with a '")
                << emithls::kModelCyclesAttrName << "' attribute";
 
-    os << "execution:\n"
+    os << "metadata: {source: laksa-model}\n"
+          "execution:\n"
           "  processes:\n"
           "    profiles:\n";
     for (auto [name, cycles] : profiles) {

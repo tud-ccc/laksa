@@ -34,8 +34,9 @@ execution:
 )
 
 
-def fragment(processor_type, cycles):
+def fragment(processor_type, cycles, source="benchmark"):
     return {
+        "metadata": {"source": source},
         "execution": {
             "processes": {
                 "profiles": {"node": {processor_type: {"cycles": cycles}}}
@@ -79,6 +80,41 @@ class MergeProfilesTest(unittest.TestCase):
                     ("first.yaml", fragment("CortexA53", 120)),
                     ("second.yaml", fragment("CortexA53", 130)),
                 ],
+            )
+
+    def test_prefers_higher_priority_source_independently_of_order(self):
+        model = ("model.yaml", fragment("K26_PL", 120, "laksa-model"))
+        hls = ("hls.yaml", fragment("K26_PL", 30, "hls"))
+
+        for fragments in ([model, hls], [hls, model]):
+            with self.subTest(order=[item[0] for item in fragments]):
+                result = merge_profiles(TEMPLATE, fragments)
+                self.assertEqual(
+                    result["execution"]["processes"]["profiles"]["node"],
+                    {"K26_PL": {"cycles": 30}},
+                )
+
+    def test_prefers_benchmark_over_hls(self):
+        result = merge_profiles(
+            TEMPLATE,
+            [
+                ("benchmark.yaml", fragment("K26_PL", 25, "benchmark")),
+                ("hls.yaml", fragment("K26_PL", 30, "hls")),
+            ],
+        )
+
+        self.assertEqual(
+            result["execution"]["processes"]["profiles"]["node"],
+            {"K26_PL": {"cycles": 25}},
+        )
+
+    def test_rejects_unknown_source(self):
+        with self.assertRaisesRegex(
+            ProfileMergeError, "unknown profile source 'simulation'"
+        ):
+            merge_profiles(
+                TEMPLATE,
+                [("profile.yaml", fragment("K26_PL", 30, "simulation"))],
             )
 
     def test_rejects_unknown_profile(self):

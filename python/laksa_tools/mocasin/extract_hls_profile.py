@@ -73,7 +73,10 @@ def extract_hls_profile(
             processor_type: {"cycles": _read_latency(path, process_name)}
         }
 
-    return {"execution": {"processes": {"profiles": profiles}}}
+    return {
+        "metadata": {"source": "hls"},
+        "execution": {"processes": {"profiles": profiles}},
+    }
 
 
 def _parser() -> argparse.ArgumentParser:

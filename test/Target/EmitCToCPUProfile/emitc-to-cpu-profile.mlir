@@ -12,7 +12,8 @@
 // CHECK: std::uint64_t measureNode1
 // CHECK: main_node_1(node1Arg0);
 // CHECK: if (options.node.empty() || options.node == "main_node_0")
-// CHECK: std::cout << "execution:\n  processes:\n    profiles:\n";
+// CHECK: std::cout << "metadata: {source: benchmark}\n"
+// CHECK-NEXT: "execution:\n  processes:\n    profiles:\n";
 
 module {
   emitc.func @main_node_0(%arg0: !emitc.array<4xi32>) {

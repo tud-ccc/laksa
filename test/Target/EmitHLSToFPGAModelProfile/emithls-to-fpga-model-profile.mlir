@@ -1,6 +1,7 @@
 // RUN: laksa-translate %s --emithls-to-model-profile | FileCheck %s
 
-// CHECK:      execution:
+// CHECK:      metadata: {source: laksa-model}
+// CHECK-NEXT: execution:
 // CHECK-NEXT:   processes:
 // CHECK-NEXT:     profiles:
 // CHECK-NEXT:       "main_node_0":

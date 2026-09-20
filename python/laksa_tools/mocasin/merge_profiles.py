@@ -18,6 +18,14 @@ class ProfileMergeError(ValueError):
     """A profile fragment cannot be merged into the application template."""
 
 
+_SOURCE_PRIORITIES = {
+    "laksa-model": 0,
+    "hls": 1,
+    "benchmark": 2,
+    "boundary": 3,
+}
+
+
 def _mapping(value: Any, description: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ProfileMergeError(f"{description} must be a mapping")
@@ -36,10 +44,25 @@ def _profiles(document: Any, source: str) -> Mapping[str, Any]:
     )
 
 
-def _validate_fragment_shape(fragment: Mapping[str, Any], source: str) -> None:
-    if set(fragment) != {"execution"}:
+def _validate_fragment_shape(
+    fragment: Mapping[str, Any], source: str
+) -> str:
+    if set(fragment) != {"metadata", "execution"}:
         raise ProfileMergeError(
-            f"{source} must contain only the 'execution' section"
+            f"{source} must contain exactly 'metadata' and 'execution'"
+        )
+    metadata = _mapping(fragment["metadata"], f"{source}: metadata")
+    if set(metadata) != {"source"}:
+        raise ProfileMergeError(
+            f"{source}: metadata must contain only 'source'"
+        )
+    profile_source = metadata["source"]
+    if (
+        not isinstance(profile_source, str)
+        or profile_source not in _SOURCE_PRIORITIES
+    ):
+        raise ProfileMergeError(
+            f"{source}: unknown profile source '{profile_source}'"
         )
     execution = _mapping(fragment["execution"], f"{source}: execution")
     if set(execution) != {"processes"}:
@@ -53,6 +76,7 @@ def _validate_fragment_shape(fragment: Mapping[str, Any], source: str) -> None:
         raise ProfileMergeError(
             f"{source}: execution.processes must contain only 'profiles'"
         )
+    return profile_source
 
 
 def merge_profiles(
@@ -64,10 +88,12 @@ def merge_profiles(
 
     result = copy.deepcopy(template)
     target_profiles = _profiles(result, "template")
+    profile_sources: dict[tuple[str, str], str] = {}
 
     if boundary is not None:
         processor_type, cycles = boundary
         boundary_fragment = {
+            "metadata": {"source": "boundary"},
             "execution": {
                 "processes": {
                     "profiles": {
@@ -79,7 +105,7 @@ def merge_profiles(
         fragments = chain(fragments, [("--boundary", boundary_fragment)])
 
     for source, fragment in fragments:
-        _validate_fragment_shape(fragment, source)
+        profile_source = _validate_fragment_shape(fragment, source)
         fragment_profiles = _profiles(fragment, source)
         for profile_name, processors_value in fragment_profiles.items():
             if profile_name not in target_profiles:
@@ -121,11 +147,26 @@ def merge_profiles(
                         "must contain a non-negative integer 'cycles' value"
                     )
                 if processor_type in target:
-                    raise ProfileMergeError(
-                        f"{source} duplicates profile "
-                        f"'{profile_name}.{processor_type}'"
-                    )
+                    key = (profile_name, processor_type)
+                    previous_source = profile_sources.get(key)
+                    if previous_source is None:
+                        raise ProfileMergeError(
+                            f"{source} duplicates profile "
+                            f"'{profile_name}.{processor_type}' already "
+                            "present in the template"
+                        )
+                    previous_priority = _SOURCE_PRIORITIES[previous_source]
+                    priority = _SOURCE_PRIORITIES[profile_source]
+                    if priority == previous_priority:
+                        raise ProfileMergeError(
+                            f"{source} duplicates profile "
+                            f"'{profile_name}.{processor_type}' from source "
+                            f"'{profile_source}'"
+                        )
+                    if priority < previous_priority:
+                        continue
                 target[processor_type] = copy.deepcopy(entry)
+                profile_sources[(profile_name, processor_type)] = profile_source
                 added_real_profile = True
 
             if added_real_profile:

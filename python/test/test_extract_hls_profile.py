@@ -47,6 +47,7 @@ class ExtractHLSProfileTest(unittest.TestCase):
 
             result = extract_hls_profile(root)
 
+            self.assertEqual(result["metadata"], {"source": "hls"})
             self.assertEqual(
                 result["execution"]["processes"]["profiles"],
                 {
