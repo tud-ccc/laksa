@@ -202,10 +202,10 @@ add_custom_target(check-laksa-python-bindings
 add_custom_target(check-laksa-python-tools
     COMMAND ${Python3_EXECUTABLE} -m unittest discover
         -s ${CMAKE_CURRENT_SOURCE_DIR}/test
-        -p "test_merge_profiles.py"
+        -p "test_*.py"
     DEPENDS install-python-package
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Checking the Mocasin profile merger"
+    COMMENT "Checking the Mocasin profile tools"
     USES_TERMINAL
 )
 
