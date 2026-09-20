@@ -220,47 +220,6 @@ Each step prints what it is producing, so a failure names the artifact that coul
 ladle input.mlir --hls --num-bram=144 --num-dsp=600 -o out_dir
 ```
 
-### Measuring process latency on a CPU
-
-`--cpu-profile` outlines the same `main_node_N` computations that become DFG
-processes, lowers them through the EmitC backend, and generates one native
-benchmark containing all of them. At present, the generated benchmark is
-intended for CPU profiling on the Kria KV260 platform, whose application
-processing cores are Cortex-A53:
-
-```bash
-ladle input.mlir --cpu-profile -o .
-```
-
-Transfer the generated `cpu/` directory to the target platform. There, build
-and measure every process with one command:
-
-```bash
-cd cpu
-./run.sh
-```
-
-Each process is warmed up and measured independently with
-Linux's hardware CPU-cycle counter. The result is written to
-`profiles_<processor-type>.yaml` as a Mocasin
-`execution.processes.profiles` fragment.
-
-To measure only one process, or tune the sampling:
-
-```bash
-./run.sh --node main_node_3
-./run.sh --warmup 2 --repetitions 10 --samples 9 --cpu 1
-./run.sh --processor-type CortexA53
-```
-
-The default processor type is `CortexA53`, matching the KV260 platform model.
-If the kernel denies access to performance counters, run the same command with
-`sudo` (all options remain unchanged), or adjust the target's
-`perf_event_paranoid` setting:
-
-```bash
-sudo ./run.sh --processor-type CortexA53 --samples 9 --cpu 1
-```
 
 ## Running a design on the board
 
@@ -297,3 +256,50 @@ Mismatches are reported per element, with the index into the output buffer, and 
 
 The `.bin` files are raw dumps of the DMA buffers with no header, one `input<n>.bin` per argument the kernel reads and one `output<n>.bin` per argument it writes.
 Dropping in your own inputs of the right size is all it takes to run real data; the sizes are in `app.h`.
+
+## Exporting a profiled application to Mocasin
+
+Mocasin needs the application graph and an execution profile for every
+processor type on which each process may run. LAKSA generates these as separate
+YAML files so that measurements performed on another machine can be added
+later.
+
+First, generate the Mocasin application template, the FPGA model profiles, and
+the CPU benchmark in one output directory:
+
+```bash
+mkdir -p out_dir
+ladle input.mlir --mocasin -o out_dir
+ladle input.mlir --hls -o out_dir
+ladle input.mlir --cpu-profile -o out_dir
+```
+
+The HLS flow automatically writes the FPGA model estimates to
+`out_dir/profiles/profiles_K26_PL_model.yaml`. The CPU flow prepares
+`out_dir/cpu/`, which contains one native benchmark for all outlined
+`main_node_N` processes.
+
+Transfer `cpu/` to the target platform, run the benchmark there, and transfer
+the directory back without changing its structure:
+
+```bash
+cd cpu
+./run.sh
+```
+
+The current default is `CortexA53`, matching the application processors on the
+Kria KV260. If access to the hardware cycle counter is restricted, run the
+script with `sudo`. Use `./run.sh --help` to select a process or adjust the
+measurement parameters.
+
+Back on the development machine, collect the measured profile alongside the
+FPGA profile and run the generated merger:
+
+```bash
+cp out_dir/cpu/profiles_*.yaml out_dir/profiles/
+out_dir/mocasin/merge_profiles.sh
+```
+
+The merger assigns the synthetic graph inputs and outputs to `CortexA53` with
+a latency of one cycle. The resulting `out_dir/mocasin/application.yaml` is
+ready to use as a Mocasin application.
