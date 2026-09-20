@@ -6,13 +6,17 @@ build-backend = "scikit_build_core.build"
 name = "mlir-laksa"
 dynamic = ["version"]
 requires-python = ">=3.12"
+dependencies = ["PyYAML>=5.4.0,<=6.0.3"]
+
+[project.scripts]
+laksa-merge-profiles = "laksa_tools.mocasin.merge_profiles:main"
 
 [tool.scikit-build]
 build-dir = "build"
 cmake.build-type = "Release"
 build.targets = ["LAKSAPythonModules"]
 install.components = ["LAKSAPythonModules"]
-wheel.packages = []
+wheel.packages = ["python/laksa_tools"]
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
