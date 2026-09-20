@@ -37,7 +37,7 @@ const char* const usage =
     "                         output directory:\n"
     "                           hls.mlir            the lowered IR\n"
     "                           ref.mlir            the input in emitc\n"
-    "                           profiles_K26_PL_model.yaml\n"
+    "                           profiles/profiles_K26_PL_model.yaml\n"
     "                                               FPGA model profiles\n"
     "                           hw/main.cpp         Vitis HLS input\n"
     "                           hw/run_hls.tcl\n"
@@ -140,6 +140,8 @@ const char* const refIRFilename = "ref.mlir";
 /// generated scripts refer to their inputs relatively, so they are meant to be
 /// sourced from here, with the C++ source sitting next to them.
 const char* const hlsToolSubdir = "hw";
+/// Subdirectory collecting execution-profile fragments for Mocasin.
+const char* const profilesSubdir = "profiles";
 /// Subdirectory holding what gets deployed to the board, i.e. the device tree
 /// overlay and the userspace program built against the laksa-hls-kria-driver.
 const char* const hlsAppSubdir = "app";
@@ -155,17 +157,17 @@ struct HLSArtifact {
     const char* filename;
 };
 const HLSArtifact hlsArtifacts[] = {
-    {hlsIRFilename,    "emithls-to-model-profile",            "", "profiles_K26_PL_model.yaml"},
-    {hlsIRFilename,              "emithls-to-cpp", hlsToolSubdir,                   "main.cpp"},
-    {hlsIRFilename,          "emithls-to-hls-tcl", hlsToolSubdir,                "run_hls.tcl"},
-    {hlsIRFilename,       "emithls-to-vivado-tcl", hlsToolSubdir,             "run_vivado.tcl"},
-    {hlsIRFilename, "emithls-to-hls-build-script", hlsToolSubdir,                   "build.sh"},
-    {hlsIRFilename,     "emithls-to-laksa-header",  hlsAppSubdir,                      "app.h"},
-    {hlsIRFilename,        "emithls-to-laksa-app",  hlsAppSubdir,                      "app.c"},
-    {hlsIRFilename,        "emithls-to-kria-dtsi",  hlsAppSubdir,                   "app.dtsi"},
-    {refIRFilename,                 "mlir-to-cpp",  hlsAppSubdir,                      "ref.h"},
-    {refIRFilename,          "emitc-to-laksa-ref",  hlsAppSubdir,                      "ref.c"},
-    {hlsIRFilename, "emithls-to-laksa-run-script",  hlsAppSubdir,                     "run.sh"},
+    {hlsIRFilename,    "emithls-to-model-profile", profilesSubdir, "profiles_K26_PL_model.yaml"},
+    {hlsIRFilename,              "emithls-to-cpp",  hlsToolSubdir,                   "main.cpp"},
+    {hlsIRFilename,          "emithls-to-hls-tcl",  hlsToolSubdir,                "run_hls.tcl"},
+    {hlsIRFilename,       "emithls-to-vivado-tcl",  hlsToolSubdir,             "run_vivado.tcl"},
+    {hlsIRFilename, "emithls-to-hls-build-script",  hlsToolSubdir,                   "build.sh"},
+    {hlsIRFilename,     "emithls-to-laksa-header",   hlsAppSubdir,                      "app.h"},
+    {hlsIRFilename,        "emithls-to-laksa-app",   hlsAppSubdir,                      "app.c"},
+    {hlsIRFilename,        "emithls-to-kria-dtsi",   hlsAppSubdir,                   "app.dtsi"},
+    {refIRFilename,                 "mlir-to-cpp",   hlsAppSubdir,                      "ref.h"},
+    {refIRFilename,          "emitc-to-laksa-ref",   hlsAppSubdir,                      "ref.c"},
+    {hlsIRFilename, "emithls-to-laksa-run-script",   hlsAppSubdir,                     "run.sh"},
 };
 
 struct Options {
@@ -447,7 +449,8 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         return 1;
     }
 
-    for (const char* subdir : {hlsToolSubdir, hlsAppSubdir}) {
+    for (const char* subdir :
+         {hlsToolSubdir, hlsAppSubdir, profilesSubdir}) {
         SmallString<128> subdirPath(outputDir);
         sys::path::append(subdirPath, subdir);
         if (auto ec = sys::fs::create_directories(subdirPath)) {
