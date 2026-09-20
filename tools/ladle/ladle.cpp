@@ -2,6 +2,7 @@
 ///
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallString.h"
@@ -43,6 +44,8 @@ const char* const usage =
     "                           hw/run_hls.tcl\n"
     "                           hw/run_vivado.tcl\n"
     "                           hw/build.sh         builds the bitstream\n"
+    "                           hw/extract_hls_profile.sh\n"
+    "                                               extracts HLS profiles\n"
     "                           app/app.h           board-side driver API\n"
     "                           app/app.c           board-side driver\n"
     "                           app/app.dtsi\n"
@@ -174,17 +177,18 @@ struct HLSArtifact {
     const char* filename;
 };
 const HLSArtifact hlsArtifacts[] = {
-    {hlsIRFilename,    "emithls-to-model-profile", profilesSubdir, "profiles_K26_PL_model.yaml"},
-    {hlsIRFilename,              "emithls-to-cpp",  hlsToolSubdir,                   "main.cpp"},
-    {hlsIRFilename,          "emithls-to-hls-tcl",  hlsToolSubdir,                "run_hls.tcl"},
-    {hlsIRFilename,       "emithls-to-vivado-tcl",  hlsToolSubdir,             "run_vivado.tcl"},
-    {hlsIRFilename, "emithls-to-hls-build-script",  hlsToolSubdir,                   "build.sh"},
-    {hlsIRFilename,     "emithls-to-laksa-header",   hlsAppSubdir,                      "app.h"},
-    {hlsIRFilename,        "emithls-to-laksa-app",   hlsAppSubdir,                      "app.c"},
-    {hlsIRFilename,        "emithls-to-kria-dtsi",   hlsAppSubdir,                   "app.dtsi"},
-    {refIRFilename,                 "mlir-to-cpp",   hlsAppSubdir,                      "ref.h"},
-    {refIRFilename,          "emitc-to-laksa-ref",   hlsAppSubdir,                      "ref.c"},
-    {hlsIRFilename, "emithls-to-laksa-run-script",   hlsAppSubdir,                     "run.sh"},
+    {hlsIRFilename,       "emithls-to-model-profile", profilesSubdir, "profiles_K26_PL_model.yaml"},
+    {hlsIRFilename,                 "emithls-to-cpp",  hlsToolSubdir,                   "main.cpp"},
+    {hlsIRFilename,             "emithls-to-hls-tcl",  hlsToolSubdir,                "run_hls.tcl"},
+    {hlsIRFilename,          "emithls-to-vivado-tcl",  hlsToolSubdir,             "run_vivado.tcl"},
+    {hlsIRFilename,    "emithls-to-hls-build-script",  hlsToolSubdir,                   "build.sh"},
+    {hlsIRFilename,  "emithls-to-hls-profile-script",  hlsToolSubdir,     "extract_hls_profile.sh"},
+    {hlsIRFilename,        "emithls-to-laksa-header",   hlsAppSubdir,                      "app.h"},
+    {hlsIRFilename,           "emithls-to-laksa-app",   hlsAppSubdir,                      "app.c"},
+    {hlsIRFilename,           "emithls-to-kria-dtsi",   hlsAppSubdir,                   "app.dtsi"},
+    {refIRFilename,                    "mlir-to-cpp",   hlsAppSubdir,                      "ref.h"},
+    {refIRFilename,             "emitc-to-laksa-ref",   hlsAppSubdir,                      "ref.c"},
+    {hlsIRFilename,    "emithls-to-laksa-run-script",   hlsAppSubdir,                     "run.sh"},
 };
 
 struct Options {
