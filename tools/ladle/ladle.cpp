@@ -25,9 +25,9 @@ const char* const usage =
     "output file through an optional pass pipeline and/or translation.\n\n"
     "Usage: ladle [options] <input file>\n\n"
     "Options:\n"
-    "  -o, --output=<file>    Output filename (default: null); with --hls or\n"
-    "                         --cpu-profile, the artifact directory\n"
-    "                         (default: the current directory)\n"
+    "  -o, --output=<file>    Output filename (default: null); with --hls,\n"
+    "                         --cpu-profile, or --mocasin, the artifact\n"
+    "                         directory (default: the current directory)\n"
     "  -p, --passes=<value>   Passes to run through laksa-opt\n"
     "  -t, --translation=<name>\n"
     "                         Translation for laksa-translate to run\n"
@@ -59,10 +59,13 @@ const char* const usage =
     "                         profiles_<processor-type>.yaml.\n"
     "                         Cannot be combined with another built-in flow,\n"
     "                         --passes, or --translation\n"
-    "      --mocasin          Run the DFG extraction pipeline and translate\n"
-    "                         the resulting graph to Mocasin YAML. Cannot be\n"
-    "                         combined with --hls, --dot, --passes, or\n"
-    "                         --translation\n"
+    "      --mocasin          Run the DFG extraction pipeline and write the\n"
+    "                         Mocasin template and profile-merging script below\n"
+    "                         the output directory:\n"
+    "                           mocasin/template.yaml\n"
+    "                           mocasin/merge_profiles.sh\n"
+    "                         Cannot be combined with --hls, --dot, --passes,\n"
+    "                         or --translation\n"
     "      --dot              Run the DFG extraction pipeline and translate\n"
     "                         the resulting graph to Graphviz DOT. Cannot be\n"
     "                         combined with --hls, --mocasin, --passes, or\n"
@@ -120,6 +123,8 @@ const PassDebugType laksaPassDebugTypes[] = {
 const char* const hlsPipeline = "convert-to-emithls";
 const char* const dfgPipeline = "convert-to-dfg";
 const char* const mocasinTranslation = "dfg-to-mocasin";
+const char* const mocasinMergeScriptTranslation =
+    "dfg-to-mocasin-merge-script";
 const char* const dotTranslation = "dfg-to-dot";
 const char* const cpuProfilePipeline = "convert-to-laksa-cpu-profile";
 const char* const cpuProfileTranslation = "emitc-to-cpu-profile";
@@ -129,6 +134,18 @@ const char* const cpuProfileRunScriptTranslation =
     "emitc-to-cpu-profile-run-script";
 const char* const cpuProfileIRFilename = "cpu.mlir";
 const char* const cpuProfileSubdir = "cpu";
+const char* const mocasinSubdir = "mocasin";
+const char* const mocasinTemplateFilename = "template.yaml";
+const char* const mocasinMergeScriptFilename = "merge_profiles.sh";
+struct MocasinArtifact {
+    const char* translation;
+    const char* filename;
+};
+const MocasinArtifact mocasinArtifacts[] = {
+    {           mocasinTranslation,        mocasinTemplateFilename},
+    {mocasinMergeScriptTranslation, mocasinMergeScriptFilename},
+};
+
 /// The EmitHLS IR --hls leaves behind next to the generated artifacts.
 const char* const hlsIRFilename = "hls.mlir";
 /// The scalar reference implementation comes from the same input lowered to
@@ -599,6 +616,64 @@ int runCPUProfileFlow(const Options &opts, StringRef selfDir)
     return 0;
 }
 
+/// Extracts the DFG and prepares the Mocasin template and profile merger.
+int runMocasinFlow(const Options &opts, StringRef selfDir)
+{
+    StringRef outputDir =
+        opts.outputFilename == "-" ? StringRef(".") : opts.outputFilename;
+
+    SmallString<128> mocasinDir(outputDir);
+    sys::path::append(mocasinDir, mocasinSubdir);
+    SmallString<128> profilesDir(outputDir);
+    sys::path::append(profilesDir, profilesSubdir);
+    for (StringRef directory : {StringRef(mocasinDir), StringRef(profilesDir)}) {
+        if (auto ec = sys::fs::create_directories(directory)) {
+            errs() << "ladle: failed to create output directory '" << directory
+                   << "': " << ec.message() << "\n";
+            return 1;
+        }
+    }
+
+    SmallString<128> dfgPath(outputDir);
+    sys::path::append(dfgPath, "dfg.mlir");
+
+    std::string optPath = findTool("laksa-opt", selfDir);
+    run(opts,
+        optPath,
+        buildOptArgs(
+            opts,
+            optPath,
+            dfgPipeline,
+            opts.inputFilename,
+            dfgPath));
+
+    std::string translatePath = findTool("laksa-translate", selfDir);
+    for (const auto &artifact : mocasinArtifacts) {
+        SmallString<128> artifactPath(mocasinDir);
+        sys::path::append(artifactPath, artifact.filename);
+        run(opts,
+            translatePath,
+            {translatePath,
+             std::string(dfgPath),
+             asFlag(artifact.translation),
+             "-o",
+             std::string(artifactPath)});
+        if (sys::path::extension(artifactPath) != ".sh") continue;
+        if (auto ec = sys::fs::setPermissions(
+                artifactPath,
+                sys::fs::perms::all_read | sys::fs::perms::owner_write
+                    | sys::fs::perms::all_exe)) {
+            errs() << "ladle: failed to make '" << artifactPath
+                   << "' executable: " << ec.message() << "\n";
+            return 1;
+        }
+    }
+
+    errs() << "INFO: Done, wrote Mocasin artifacts below '" << mocasinDir
+           << "'\n";
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -619,6 +694,7 @@ int main(int argc, char** argv)
 
     if (opts.hls) return runHLSFlow(opts, selfDir);
     if (opts.cpuProfile) return runCPUProfileFlow(opts, selfDir);
+    if (opts.mocasin) return runMocasinFlow(opts, selfDir);
 
     SmallString<128> tempPath;
     bool haveTemp = false;
