@@ -3,8 +3,10 @@
 # @file
 # @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 import yaml
@@ -96,6 +98,30 @@ class MergeProfilesTest(unittest.TestCase):
                 [("invalid.yaml", fragment("CortexA53", -1))],
             )
 
+    def test_sets_boundary_profile(self):
+        result = merge_profiles(
+            TEMPLATE,
+            [("cpu.yaml", fragment("CortexA53", 120))],
+            boundary=("CortexA53", 7),
+        )
+
+        self.assertEqual(
+            result["execution"]["processes"]["profiles"]["boundary"],
+            {"CortexA53": {"cycles": 7}},
+        )
+
+    def test_rejects_boundary_when_template_has_no_boundary_profile(self):
+        template = yaml.safe_load(yaml.safe_dump(TEMPLATE))
+        del template["execution"]["processes"]["profiles"]["boundary"]
+        with self.assertRaisesRegex(
+            ProfileMergeError, "unknown profile 'boundary'"
+        ):
+            merge_profiles(
+                template,
+                [("cpu.yaml", fragment("CortexA53", 120))],
+                boundary=("CortexA53", 1),
+            )
+
     def test_command_writes_merged_application(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -112,6 +138,8 @@ class MergeProfilesTest(unittest.TestCase):
                     [
                         str(template_path),
                         str(profile_path),
+                        "--boundary",
+                        "CortexA53",
                         "-o",
                         str(output_path),
                     ]
@@ -122,6 +150,38 @@ class MergeProfilesTest(unittest.TestCase):
             self.assertEqual(
                 result["execution"]["processes"]["profiles"]["node"],
                 {"CortexA53": {"cycles": 120}},
+            )
+            self.assertEqual(
+                result["execution"]["processes"]["profiles"]["boundary"],
+                {"CortexA53": {"cycles": 1}},
+            )
+
+    def test_command_warns_about_unresolved_profiles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            template_path = root / "app.template.yaml"
+            profile_path = root / "profiles_CortexA53.yaml"
+            output_path = root / "app.yaml"
+            template_path.write_text(yaml.safe_dump(TEMPLATE), encoding="utf-8")
+            profile_path.write_text(
+                yaml.safe_dump(fragment("CortexA53", 120)), encoding="utf-8"
+            )
+
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                status = main(
+                    [
+                        str(template_path),
+                        str(profile_path),
+                        "-o",
+                        str(output_path),
+                    ]
+                )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(
+                stderr.getvalue(),
+                "warning: unresolved processor profiles remain: boundary\n",
             )
 
 

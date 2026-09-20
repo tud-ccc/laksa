@@ -6,6 +6,7 @@
 import argparse
 import copy
 from collections.abc import Iterable, Mapping
+from itertools import chain
 from pathlib import Path
 import sys
 from typing import Any
@@ -57,11 +58,25 @@ def _validate_fragment_shape(fragment: Mapping[str, Any], source: str) -> None:
 def merge_profiles(
     template: Mapping[str, Any],
     fragments: Iterable[tuple[str, Mapping[str, Any]]],
+    boundary: tuple[str, int] | None = None,
 ) -> dict[str, Any]:
     """Return a copy of ``template`` with profile fragments merged into it."""
 
     result = copy.deepcopy(template)
     target_profiles = _profiles(result, "template")
+
+    if boundary is not None:
+        processor_type, cycles = boundary
+        boundary_fragment = {
+            "execution": {
+                "processes": {
+                    "profiles": {
+                        "boundary": {processor_type: {"cycles": cycles}}
+                    }
+                }
+            }
+        }
+        fragments = chain(fragments, [("--boundary", boundary_fragment)])
 
     for source, fragment in fragments:
         _validate_fragment_shape(fragment, source)
@@ -125,6 +140,38 @@ def _load_yaml(path: Path) -> Mapping[str, Any]:
     return _mapping(document, str(path))
 
 
+def _unresolved_profiles(document: Mapping[str, Any]) -> list[str]:
+    profiles = _profiles(document, "merged application")
+    return sorted(
+        profile_name
+        for profile_name, processors_value in profiles.items()
+        if "UNKNOWN"
+        in _mapping(
+            processors_value,
+            f"merged application: profile '{profile_name}'",
+        )
+    )
+
+
+def _parse_boundary(value: str) -> tuple[str, int]:
+    processor_type, separator, cycles_text = value.partition("=")
+    if not processor_type or processor_type.strip() != processor_type:
+        raise argparse.ArgumentTypeError("boundary must use PROCESSOR[=CYCLES]")
+    if not separator:
+        return processor_type, 1
+    try:
+        cycles = int(cycles_text)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "boundary cycles must be a non-negative integer"
+        ) from error
+    if cycles < 0:
+        raise argparse.ArgumentTypeError(
+            "boundary cycles must be a non-negative integer"
+        )
+    return processor_type, cycles
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -136,6 +183,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "profiles", type=Path, nargs="+", help="profile fragment YAML files"
     )
+    parser.add_argument(
+        "--boundary",
+        type=_parse_boundary,
+        metavar="PROCESSOR[=CYCLES]",
+        help=(
+            "assign the synthetic boundary profile to PROCESSOR; CYCLES "
+            "defaults to 1"
+        ),
+    )
     parser.add_argument("-o", "--output", type=Path, required=True)
     return parser
 
@@ -145,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         template = _load_yaml(args.template)
         fragments = [(str(path), _load_yaml(path)) for path in args.profiles]
-        result = merge_profiles(template, fragments)
+        result = merge_profiles(template, fragments, boundary=args.boundary)
         with args.output.open("w", encoding="utf-8") as stream:
             yaml.safe_dump(
                 result,
@@ -153,6 +209,13 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=False,
                 explicit_start=True,
                 explicit_end=True,
+            )
+        unresolved = _unresolved_profiles(result)
+        if unresolved:
+            print(
+                "warning: unresolved processor profiles remain: "
+                + ", ".join(unresolved),
+                file=sys.stderr,
             )
     except (OSError, ProfileMergeError, yaml.YAMLError) as error:
         print(f"error: {error}", file=sys.stderr)
