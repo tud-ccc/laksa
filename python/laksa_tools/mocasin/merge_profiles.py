@@ -207,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
                 result,
                 stream,
                 sort_keys=False,
+                default_flow_style=None,
                 explicit_start=True,
                 explicit_end=True,
             )
