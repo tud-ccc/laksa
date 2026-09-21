@@ -9,6 +9,7 @@
 #include "laksa-mlir/Dialect/DFG/IR/DFGOps.h"
 #include "laksa-mlir/Dialect/DFG/IR/DFGTypes.h"
 #include "laksa-mlir/Dialect/EmitHLS/IR/EmitHLS.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/IRMapping.h"
@@ -130,6 +131,8 @@ struct NodeToFunc : OpConversionPattern<NodeOpT> {
         auto newFuncType = buildFuncTypeFromNode(op, rewriter);
         LAKSA_DEBUG(llvm::dbgs() << "  New func signature is " << newFuncType);
         auto newFuncOp = FuncOp::create(rewriter, loc, nodeName, newFuncType);
+        if (Attribute rootAttr = op->getAttr(laksa::kRootAttrName))
+            newFuncOp->setAttr(laksa::kRootAttrName, rootAttr);
 
         // Build block with new types.
         auto* entryBlock = rewriter.createBlock(

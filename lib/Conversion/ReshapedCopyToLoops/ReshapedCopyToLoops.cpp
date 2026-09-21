@@ -68,16 +68,71 @@ static SmallVector<int64_t> contiguousStrides(ArrayRef<int64_t> shape)
 struct Window {
     Value buffer;
     SmallVector<int64_t> starts;
+    SmallVector<int64_t> steps;
 };
 
-// The block of a flat buffer that value addresses, either the whole buffer or
-// an unstepped same-rank reinterpret_cast of it.
+static bool hasDynamicValue(ArrayRef<int64_t> values)
+{
+    return llvm::any_of(
+        values,
+        [](int64_t value) { return ShapedType::isDynamic(value); });
+}
+
+static bool isInBounds(const Window &window, ArrayRef<int64_t> shape)
+{
+    auto bufferType = cast<MemRefType>(window.buffer.getType());
+    for (auto [start, step, size, bufferSize] : llvm::zip_equal(
+             window.starts,
+             window.steps,
+             shape,
+             bufferType.getShape())) {
+        if (start < 0 || step <= 0 || size <= 0) return false;
+        if (start + (size - 1) * step >= bufferSize) return false;
+    }
+    return true;
+}
+
+// The block of a flat buffer that value addresses, either the whole buffer, a
+// static same-rank subview, or a same-rank reinterpret_cast of it.
 static std::optional<Window> windowOf(Value value)
 {
     auto valueTy = dyn_cast<MemRefType>(value.getType());
     if (!valueTy || !valueTy.hasStaticShape()) return std::nullopt;
-    if (isFlat(valueTy))
-        return Window{value, SmallVector<int64_t>(valueTy.getRank(), 0)};
+
+    if (auto subview = value.getDefiningOp<memref::SubViewOp>()) {
+        auto sourceTy = dyn_cast<MemRefType>(subview.getSource().getType());
+        if (!sourceTy || sourceTy.getRank() != valueTy.getRank())
+            return std::nullopt;
+
+        ArrayRef<int64_t> offsets = subview.getStaticOffsets();
+        ArrayRef<int64_t> sizes = subview.getStaticSizes();
+        ArrayRef<int64_t> strides = subview.getStaticStrides();
+        if (hasDynamicValue(offsets) || hasDynamicValue(sizes)
+            || hasDynamicValue(strides) || sizes != valueTy.getShape())
+            return std::nullopt;
+
+        std::optional<Window> source = windowOf(subview.getSource());
+        if (!source) return std::nullopt;
+
+        Window window{source->buffer, {}, {}};
+        for (auto [sourceStart, sourceStep, offset, stride] : llvm::zip_equal(
+                 source->starts,
+                 source->steps,
+                 offsets,
+                 strides)) {
+            window.starts.push_back(sourceStart + offset * sourceStep);
+            window.steps.push_back(sourceStep * stride);
+        }
+        return isInBounds(window, sizes) ? std::optional<Window>(window)
+                                         : std::nullopt;
+    }
+
+    if (isFlat(valueTy)) {
+        return Window{
+            value,
+            SmallVector<int64_t>(valueTy.getRank(), 0),
+            SmallVector<int64_t>(valueTy.getRank(), 1)};
+    }
 
     auto castOp = value.getDefiningOp<memref::ReinterpretCastOp>();
     if (!castOp) return std::nullopt;
@@ -94,10 +149,11 @@ static std::optional<Window> windowOf(Value value)
         || castOp.getStaticStrides() != ArrayRef<int64_t>(strides))
         return std::nullopt;
 
-    Window window{castOp.getSource(), {}};
+    Window window{castOp.getSource(), {}, {}};
     int64_t rest = offsets.front();
     for (auto [dim, stride] : llvm::enumerate(strides)) {
         window.starts.push_back(rest / stride);
+        window.steps.push_back(1);
         rest %= stride;
         if (window.starts.back() + valueTy.getDimSize(dim)
             > bufferTy.getDimSize(dim))
@@ -268,12 +324,18 @@ struct WindowedCopyToLoops : public OpRewritePattern<memref::CopyOp> {
 
         auto indicesFor = [&](const Window &window) {
             SmallVector<Value> indices;
-            for (auto [start, inductionVar] :
-                 llvm::zip_equal(window.starts, inductionVars)) {
+            for (auto [start, step, inductionVar] : llvm::zip_equal(
+                     window.starts,
+                     window.steps,
+                     inductionVars)) {
                 Value index = inductionVar;
+                if (index && step != 1) {
+                    Value factor =
+                        arith::ConstantIndexOp::create(rewriter, loc, step);
+                    index = arith::MulIOp::create(rewriter, loc, index, factor);
+                }
                 if (!index) {
-                    index =
-                        arith::ConstantIndexOp::create(rewriter, loc, start);
+                    index = arith::ConstantIndexOp::create(rewriter, loc, start);
                 } else if (start != 0) {
                     Value offset =
                         arith::ConstantIndexOp::create(rewriter, loc, start);

@@ -8,5 +8,6 @@ add_mlir_conversion_library(ConvertToEmitHLS
         Core
 
     LINK_LIBS PUBLIC
+        ConvertToDFG
         MLIRPass
 )

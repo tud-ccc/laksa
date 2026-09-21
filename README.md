@@ -189,11 +189,16 @@ ladle input.mlir --hls -o out_dir
 out_dir/
 ├── hls.mlir            the design, lowered to the EmitHLS dialect
 ├── ref.mlir            the same input lowered to emitc instead
+├── profiles/
+│   └── profiles_K26_PL_model.yaml
+│                       per-process cycles from LAKSA's FPGA model
 ├── hw/                 what the build host needs
 │   ├── main.cpp        Vitis HLS input
 │   ├── run_hls.tcl     C synthesis and IP export
 │   ├── run_vivado.tcl  block design, synthesis, implementation, bitstream
-│   └── build.sh        runs both, extracts <design>.bit from the XSA
+│   ├── build.sh        runs both, extracts <design>.bit from the XSA
+│   └── extract_hls_profile.sh
+│                       extracts per-process cycles from Vitis HLS reports
 └── app/                what the board needs
     ├── app.h           buffer sizes and AXI-Lite register offsets
     ├── app.c           userspace driver, talks to /dev/laksa
@@ -205,6 +210,9 @@ out_dir/
 
 Every `hw/` artifact and most `app/` ones are translated from `hls.mlir`.
 `ref.h` and `ref.c` come from `ref.mlir`, which is the same input lowered without any of the HLS-specific restructuring, so the reference computes what the design is *meant* to compute rather than a re-derivation of what it does.
+`profiles/profiles_K26_PL_model.yaml` contains the per-process cycle counts
+selected by the FPGA model used during pragma design-space exploration, in
+Mocasin's `execution.processes.profiles` format.
 
 Each step prints what it is producing, so a failure names the artifact that could not be written.
 
@@ -213,6 +221,7 @@ Each step prints what it is producing, so a failure names the artifact that coul
 ```bash
 ladle input.mlir --hls --num-bram=144 --num-dsp=600 -o out_dir
 ```
+
 
 ## Running a design on the board
 
@@ -249,3 +258,93 @@ Mismatches are reported per element, with the index into the output buffer, and 
 
 The `.bin` files are raw dumps of the DMA buffers with no header, one `input<n>.bin` per argument the kernel reads and one `output<n>.bin` per argument it writes.
 Dropping in your own inputs of the right size is all it takes to run real data; the sizes are in `app.h`.
+
+## Exporting a profiled application to Mocasin
+
+Mocasin needs the application graph and an execution profile for every
+processor type on which each process may run. LAKSA generates these as separate
+YAML files so that measurements performed on another machine can be added
+later.
+
+### Prepare the application and profiling artifacts
+
+Generate the Mocasin application template, the FPGA artifacts, and the CPU
+benchmark in one output directory:
+
+```bash
+mkdir -p out_dir
+ladle input.mlir --mocasin -o out_dir
+ladle input.mlir --hls -o out_dir
+ladle input.mlir --cpu-profile -o out_dir
+```
+
+The three commands can also be run independently when only some of the
+artifacts are needed.
+
+### Obtain FPGA profiles
+
+The HLS flow immediately writes
+`out_dir/profiles/profiles_K26_PL_model.yaml`. These cycle estimates come from
+LAKSA's internal FPGA model and are available without running Vitis HLS. They
+provide a useful initial profile when the Xilinx toolchain or a synthesis host
+is unavailable.
+
+For more accurate, synthesis-derived estimates, transfer `out_dir/hw/` to a
+machine with Vitis installed and build the design there:
+
+```bash
+cd hw
+./build.sh
+```
+
+After transferring the resulting `hw/` directory back into `out_dir/`, extract
+the worst-case latency reported for each process:
+
+```bash
+out_dir/hw/extract_hls_profile.sh
+```
+
+This creates `out_dir/profiles/profiles_K26_PL_hls.yaml`. Both FPGA profile
+files may remain in the directory; the merger automatically prefers the Vitis
+HLS result over LAKSA's internal model estimate.
+
+### Obtain CPU profiles
+
+The CPU flow prepares `out_dir/cpu/`, which contains one native benchmark for
+all outlined `main_node_N` processes. Transfer this directory to the target
+platform, run the benchmark there, and transfer it back without changing its
+structure:
+
+```bash
+cd cpu
+./run.sh
+```
+
+The current default is `CortexA53`, matching the application processors on the
+Kria KV260. If access to the hardware cycle counter is restricted, run the
+script with `sudo`. Use `./run.sh --help` to select a process or adjust the
+measurement parameters.
+
+Back on the development machine, collect the measured profile alongside the
+FPGA profiles:
+
+```bash
+cp out_dir/cpu/profiles_*.yaml out_dir/profiles/
+```
+
+### Merge the application profiles
+
+Run the merger generated with the Mocasin template:
+
+```bash
+out_dir/mocasin/merge_profiles.sh
+```
+
+When several fragments provide the same process and processor type, the merger
+uses their provenance rather than their filenames or discovery order. The
+default priority is `laksa-model < hls < benchmark`; duplicate values from the
+same source remain an error.
+
+The merger assigns the synthetic graph inputs and outputs to `CortexA53` with
+a latency of one cycle. The resulting `out_dir/mocasin/application.yaml` is
+ready to use as a Mocasin application.

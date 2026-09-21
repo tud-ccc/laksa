@@ -15,7 +15,9 @@ configure_lit_site_cfg(
 )
 set(TEST_DEPENDS
     FileCheck count not
+    ladle
     laksa-opt
+    laksa-translate
 )
 
 # Create the test suite.

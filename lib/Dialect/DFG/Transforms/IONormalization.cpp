@@ -7,6 +7,7 @@
 #include "laksa-mlir/Dialect/DFG/IR/DFGOps.h"
 #include "laksa-mlir/Dialect/DFG/Transforms/Passes.h"
 #include "laksa-mlir/Dialect/EmitHLS/IR/EmitHLS.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/PatternMatch.h"
@@ -1798,6 +1799,8 @@ struct NormalizeRegion : public OpRewritePattern<RegionOp> {
                 }
             });
 
+        if (Attribute rootAttr = op->getAttr(laksa::kRootAttrName))
+            newRegionOp->setAttr(laksa::kRootAttrName, rootAttr);
         rewriter.replaceOp(op, newRegionOp);
         LAKSA_DEBUG(
             llvm::dbgs() << "  Replaced region \"" << op.getNodeName()

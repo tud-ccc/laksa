@@ -3,6 +3,7 @@
 ///
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #pragma once
 
@@ -15,6 +16,9 @@ namespace mlir {
 namespace laksa {
 void registerConvertToEmitCPipelines();
 void addConvertToEmitCPasses(OpPassManager &pm, uint32_t maxAllocSizeInBytes);
+void addConvertToCPUProfilePasses(
+    OpPassManager &pm,
+    uint32_t maxAllocSizeInBytes);
 } // namespace laksa
 
 } // namespace mlir

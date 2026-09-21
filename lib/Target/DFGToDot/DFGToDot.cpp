@@ -4,6 +4,7 @@
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
 
 #include "laksa-mlir/Dialect/DFG/IR/DFGOps.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "laksa-mlir/Target/DFGToDot/DotEmitter.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Operation.h"
@@ -351,9 +352,10 @@ void DotEmitter::getGraph(ModuleOp module)
             graphStr = indentContent(
                 replaceAll(graphStr, "{{Content}}", graphContentStr));
             dotGraphMap.insert({graphName, graphStr});
-            if (!isSubGraph)
+            if (opi.hasAttr(laksa::kRootAttrName)) {
                 topGraphs.push_back(
                     replaceAll(graphStr, "{{GraphNumber}}", "0"));
+            }
 
         } else if (auto nodeOp = dyn_cast<NodeInterface>(opi)) {
             // Module-level node definitions (ProcessOp, OperatorOp)

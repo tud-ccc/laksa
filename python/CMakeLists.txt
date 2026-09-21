@@ -188,7 +188,7 @@ add_custom_target(install-python-package
     USES_TERMINAL
 )
 
-add_custom_target(check-laksa-python
+add_custom_target(check-laksa-python-bindings
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/check_examples.py
         --laksa-opt $<TARGET_FILE:laksa-opt>
@@ -197,4 +197,20 @@ add_custom_target(check-laksa-python
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Checking python/examples/*.py against their test/*.mlir reference output"
     USES_TERMINAL
+)
+
+add_custom_target(check-laksa-python-tools
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+        -s ${CMAKE_CURRENT_SOURCE_DIR}/test
+        -p "test_*.py"
+    DEPENDS install-python-package
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Checking the Mocasin profile tools"
+    USES_TERMINAL
+)
+
+add_custom_target(check-laksa-python
+    DEPENDS
+        check-laksa-python-bindings
+        check-laksa-python-tools
 )

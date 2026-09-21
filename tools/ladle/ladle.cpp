@@ -2,6 +2,7 @@
 ///
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallString.h"
@@ -26,8 +27,8 @@ const char* const usage =
     "Usage: ladle [options] <input file>\n\n"
     "Options:\n"
     "  -o, --output=<file>    Output filename (default: null); with --hls,\n"
-    "                         the directory to write the artifacts into\n"
-    "                         (default: the current directory)\n"
+    "                         --cpu-profile, or --mocasin, the artifact\n"
+    "                         directory (default: the current directory)\n"
     "  -p, --passes=<value>   Passes to run through laksa-opt\n"
     "  -t, --translation=<name>\n"
     "                         Translation for laksa-translate to run\n"
@@ -37,10 +38,14 @@ const char* const usage =
     "                         output directory:\n"
     "                           hls.mlir            the lowered IR\n"
     "                           ref.mlir            the input in emitc\n"
+    "                           profiles/profiles_K26_PL_model.yaml\n"
+    "                                               FPGA model profiles\n"
     "                           hw/main.cpp         Vitis HLS input\n"
     "                           hw/run_hls.tcl\n"
     "                           hw/run_vivado.tcl\n"
     "                           hw/build.sh         builds the bitstream\n"
+    "                           hw/extract_hls_profile.sh\n"
+    "                                               extracts HLS profiles\n"
     "                           app/app.h           board-side driver API\n"
     "                           app/app.c           board-side driver\n"
     "                           app/app.dtsi\n"
@@ -48,6 +53,25 @@ const char* const usage =
     "                           app/ref.c           output checker\n"
     "                           app/run.sh          loads and checks it\n"
     "                         Cannot be combined with --passes or\n"
+    "                         --translation\n"
+    "      --cpu-profile      Generate one native benchmark containing all\n"
+    "                         outlined DFG nodes and prepare a cpu\n"
+    "                         directory with artifacts to transfer to the\n"
+    "                         target platform. Run ./run.sh there to write\n"
+    "                         per-node cycle counts to\n"
+    "                         profiles_<processor-type>.yaml.\n"
+    "                         Cannot be combined with another built-in flow,\n"
+    "                         --passes, or --translation\n"
+    "      --mocasin          Run the DFG extraction pipeline and write the\n"
+    "                         Mocasin template and profile-merging script below\n"
+    "                         the output directory:\n"
+    "                           mocasin/template.yaml\n"
+    "                           mocasin/merge_profiles.sh\n"
+    "                         Cannot be combined with --hls, --dot, --passes,\n"
+    "                         or --translation\n"
+    "      --dot              Run the DFG extraction pipeline and translate\n"
+    "                         the resulting graph to Graphviz DOT. Cannot be\n"
+    "                         combined with --hls, --mocasin, --passes, or\n"
     "                         --translation\n"
     "      --num-bram=<n>     With --hls, the number of BRAMs the pragma DSE\n"
     "                         may use (default: 288)\n"
@@ -100,6 +124,31 @@ const PassDebugType laksaPassDebugTypes[] = {
 
 /// The pass pipeline --hls runs before translating anything.
 const char* const hlsPipeline = "convert-to-emithls";
+const char* const dfgPipeline = "convert-to-dfg";
+const char* const mocasinTranslation = "dfg-to-mocasin";
+const char* const mocasinMergeScriptTranslation =
+    "dfg-to-mocasin-merge-script";
+const char* const dotTranslation = "dfg-to-dot";
+const char* const cpuProfilePipeline = "convert-to-laksa-cpu-profile";
+const char* const cpuProfileTranslation = "emitc-to-cpu-profile";
+const char* const cpuProfileNodesTranslation =
+    "emitc-to-cpu-profile-nodes";
+const char* const cpuProfileRunScriptTranslation =
+    "emitc-to-cpu-profile-run-script";
+const char* const cpuProfileIRFilename = "cpu.mlir";
+const char* const cpuProfileSubdir = "cpu";
+const char* const mocasinSubdir = "mocasin";
+const char* const mocasinTemplateFilename = "template.yaml";
+const char* const mocasinMergeScriptFilename = "merge_profiles.sh";
+struct MocasinArtifact {
+    const char* translation;
+    const char* filename;
+};
+const MocasinArtifact mocasinArtifacts[] = {
+    {           mocasinTranslation,        mocasinTemplateFilename},
+    {mocasinMergeScriptTranslation, mocasinMergeScriptFilename},
+};
+
 /// The EmitHLS IR --hls leaves behind next to the generated artifacts.
 const char* const hlsIRFilename = "hls.mlir";
 /// The scalar reference implementation comes from the same input lowered to
@@ -111,6 +160,8 @@ const char* const refIRFilename = "ref.mlir";
 /// generated scripts refer to their inputs relatively, so they are meant to be
 /// sourced from here, with the C++ source sitting next to them.
 const char* const hlsToolSubdir = "hw";
+/// Subdirectory collecting execution-profile fragments for Mocasin.
+const char* const profilesSubdir = "profiles";
 /// Subdirectory holding what gets deployed to the board, i.e. the device tree
 /// overlay and the userspace program built against the laksa-hls-kria-driver.
 const char* const hlsAppSubdir = "app";
@@ -126,16 +177,18 @@ struct HLSArtifact {
     const char* filename;
 };
 const HLSArtifact hlsArtifacts[] = {
-    {hlsIRFilename,              "emithls-to-cpp", hlsToolSubdir,       "main.cpp"},
-    {hlsIRFilename,          "emithls-to-hls-tcl", hlsToolSubdir,    "run_hls.tcl"},
-    {hlsIRFilename,       "emithls-to-vivado-tcl", hlsToolSubdir, "run_vivado.tcl"},
-    {hlsIRFilename, "emithls-to-hls-build-script", hlsToolSubdir,       "build.sh"},
-    {hlsIRFilename,     "emithls-to-laksa-header",  hlsAppSubdir,          "app.h"},
-    {hlsIRFilename,        "emithls-to-laksa-app",  hlsAppSubdir,          "app.c"},
-    {hlsIRFilename,        "emithls-to-kria-dtsi",  hlsAppSubdir,       "app.dtsi"},
-    {refIRFilename,                 "mlir-to-cpp",  hlsAppSubdir,          "ref.h"},
-    {refIRFilename,          "emitc-to-laksa-ref",  hlsAppSubdir,          "ref.c"},
-    {hlsIRFilename, "emithls-to-laksa-run-script",  hlsAppSubdir,         "run.sh"},
+    {hlsIRFilename,       "emithls-to-model-profile", profilesSubdir, "profiles_K26_PL_model.yaml"},
+    {hlsIRFilename,                 "emithls-to-cpp",  hlsToolSubdir,                   "main.cpp"},
+    {hlsIRFilename,             "emithls-to-hls-tcl",  hlsToolSubdir,                "run_hls.tcl"},
+    {hlsIRFilename,          "emithls-to-vivado-tcl",  hlsToolSubdir,             "run_vivado.tcl"},
+    {hlsIRFilename,    "emithls-to-hls-build-script",  hlsToolSubdir,                   "build.sh"},
+    {hlsIRFilename,  "emithls-to-hls-profile-script",  hlsToolSubdir,     "extract_hls_profile.sh"},
+    {hlsIRFilename,        "emithls-to-laksa-header",   hlsAppSubdir,                      "app.h"},
+    {hlsIRFilename,           "emithls-to-laksa-app",   hlsAppSubdir,                      "app.c"},
+    {hlsIRFilename,           "emithls-to-kria-dtsi",   hlsAppSubdir,                   "app.dtsi"},
+    {refIRFilename,                    "mlir-to-cpp",   hlsAppSubdir,                      "ref.h"},
+    {refIRFilename,             "emitc-to-laksa-ref",   hlsAppSubdir,                      "ref.c"},
+    {hlsIRFilename,    "emithls-to-laksa-run-script",   hlsAppSubdir,                     "run.sh"},
 };
 
 struct Options {
@@ -144,6 +197,9 @@ struct Options {
     std::string passes;
     std::string translation;
     bool hls = false;
+    bool cpuProfile = false;
+    bool mocasin = false;
+    bool dot = false;
     std::optional<unsigned> numBRAM;
     std::optional<unsigned> numDSP;
     unsigned verbosity = 0;
@@ -193,6 +249,18 @@ Options parseArgs(int argc, char** argv)
             opts.hls = true;
             continue;
         }
+        if (arg == "--cpu-profile") {
+            opts.cpuProfile = true;
+            continue;
+        }
+        if (arg == "--mocasin") {
+            opts.mocasin = true;
+            continue;
+        }
+        if (arg == "--dot") {
+            opts.dot = true;
+            continue;
+        }
         if (arg.size() >= 2 && arg[0] == '-' && arg[1] != '-'
             && arg.drop_front().find_first_not_of('v') == StringRef::npos) {
             // -v, -vv, -vvv, ... each 'v' bumps the verbosity level by one.
@@ -239,10 +307,48 @@ Options parseArgs(int argc, char** argv)
         }
     }
 
-    if (opts.hls && (!opts.passes.empty() || !opts.translation.empty())) {
+    if (opts.hls
+        && (opts.cpuProfile || opts.mocasin || opts.dot || !opts.passes.empty()
+            || !opts.translation.empty())) {
         errs() << "ladle: '--hls' brings its own pipeline and translations; "
-                  "it cannot be combined with '--passes' or '--translation'\n";
+                  "it cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
         exit(1);
+    }
+
+    if (opts.cpuProfile
+        && (opts.hls || opts.mocasin || opts.dot || !opts.passes.empty()
+            || !opts.translation.empty())) {
+        errs() << "ladle: '--cpu-profile' brings its own pipeline and "
+                  "translations; it cannot be combined with another "
+                  "built-in flow, '--passes', or '--translation'\n";
+        exit(1);
+    }
+
+    if (opts.mocasin
+        && (opts.hls || opts.cpuProfile || opts.dot || !opts.passes.empty()
+            || !opts.translation.empty())) {
+        errs() << "ladle: '--mocasin' brings its own pipeline and translation; "
+                  "it cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
+        exit(1);
+    }
+    if (opts.dot
+        && (opts.hls || opts.cpuProfile || opts.mocasin || !opts.passes.empty()
+            || !opts.translation.empty())) {
+        errs() << "ladle: '--dot' brings its own pipeline and translation; it "
+                  "cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
+        exit(1);
+    }
+
+    if (opts.mocasin) {
+        opts.passes = dfgPipeline;
+        opts.translation = mocasinTranslation;
+    }
+    if (opts.dot) {
+        opts.passes = dfgPipeline;
+        opts.translation = dotTranslation;
     }
 
     if (!opts.hls && (opts.numBRAM || opts.numDSP)) {
@@ -364,7 +470,8 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         return 1;
     }
 
-    for (const char* subdir : {hlsToolSubdir, hlsAppSubdir}) {
+    for (const char* subdir :
+         {hlsToolSubdir, hlsAppSubdir, profilesSubdir}) {
         SmallString<128> subdirPath(outputDir);
         sys::path::append(subdirPath, subdir);
         if (auto ec = sys::fs::create_directories(subdirPath)) {
@@ -407,9 +514,16 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         sys::path::append(irPath, artifact.ir);
         SmallString<128> artifactPath(outputDir);
         sys::path::append(artifactPath, artifact.subdir, artifact.filename);
-        errs() << "INFO: Writing " << artifact.subdir << "/"
-               << artifact.filename << " from " << artifact.ir << " through "
-               << artifact.translation << "...\n";
+        SmallString<128> displayPath;
+        if (StringRef(artifact.subdir).empty())
+            displayPath = artifact.filename;
+        else
+            sys::path::append(
+                displayPath,
+                artifact.subdir,
+                artifact.filename);
+        errs() << "INFO: Writing " << displayPath << " from " << artifact.ir
+               << " through " << artifact.translation << "...\n";
         run(opts,
             translatePath,
             {translatePath,
@@ -434,6 +548,136 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
     return 0;
 }
 
+/// Outlines the same leaf computations that become DFG processes, lowers each
+/// leaf to EmitC, and generates a self-contained native benchmark directory.
+int runCPUProfileFlow(const Options &opts, StringRef selfDir)
+{
+    StringRef outputDir =
+        opts.outputFilename == "-" ? StringRef(".") : opts.outputFilename;
+    SmallString<128> cpuDir(outputDir);
+    sys::path::append(cpuDir, cpuProfileSubdir);
+    if (auto ec = sys::fs::create_directories(cpuDir)) {
+        errs() << "ladle: failed to create output directory '" << cpuDir
+               << "': " << ec.message() << "\n";
+        return 1;
+    }
+
+    std::string optPath = findTool("laksa-opt", selfDir);
+    std::string translatePath = findTool("laksa-translate", selfDir);
+
+    SmallString<128> irPath(outputDir);
+    sys::path::append(irPath, cpuProfileIRFilename);
+    errs() << "INFO: Outlining CPU processes and lowering them to EmitC...\n";
+    run(opts,
+        optPath,
+        buildOptArgs(
+            opts,
+            optPath,
+            cpuProfilePipeline,
+            opts.inputFilename,
+            irPath));
+
+    SmallString<128> nodesPath(cpuDir);
+    sys::path::append(nodesPath, "nodes.cpp");
+    run(opts,
+        translatePath,
+        {translatePath,
+         std::string(irPath),
+         asFlag(cpuProfileNodesTranslation),
+         "-o",
+         std::string(nodesPath)});
+
+    SmallString<128> benchmarkPath(cpuDir);
+    sys::path::append(benchmarkPath, "benchmark.cpp");
+    run(opts,
+        translatePath,
+        {translatePath,
+         std::string(irPath),
+         asFlag(cpuProfileTranslation),
+         "-o",
+         std::string(benchmarkPath)});
+
+    SmallString<128> runScriptPath(cpuDir);
+    sys::path::append(runScriptPath, "run.sh");
+    run(opts,
+        translatePath,
+        {translatePath,
+         std::string(irPath),
+         asFlag(cpuProfileRunScriptTranslation),
+         "-o",
+         std::string(runScriptPath)});
+    if (auto ec = sys::fs::setPermissions(
+            runScriptPath,
+            sys::fs::perms::all_read | sys::fs::perms::owner_write
+                | sys::fs::perms::all_exe)) {
+        errs() << "ladle: failed to make '" << runScriptPath
+               << "' executable: " << ec.message() << "\n";
+        return 1;
+    }
+
+    errs() << "INFO: Done, copy '" << cpuDir
+           << "' to the target CPU and run ./run.sh\n";
+    return 0;
+}
+
+/// Extracts the DFG and prepares the Mocasin template and profile merger.
+int runMocasinFlow(const Options &opts, StringRef selfDir)
+{
+    StringRef outputDir =
+        opts.outputFilename == "-" ? StringRef(".") : opts.outputFilename;
+
+    SmallString<128> mocasinDir(outputDir);
+    sys::path::append(mocasinDir, mocasinSubdir);
+    SmallString<128> profilesDir(outputDir);
+    sys::path::append(profilesDir, profilesSubdir);
+    for (StringRef directory : {StringRef(mocasinDir), StringRef(profilesDir)}) {
+        if (auto ec = sys::fs::create_directories(directory)) {
+            errs() << "ladle: failed to create output directory '" << directory
+                   << "': " << ec.message() << "\n";
+            return 1;
+        }
+    }
+
+    SmallString<128> dfgPath(outputDir);
+    sys::path::append(dfgPath, "dfg.mlir");
+
+    std::string optPath = findTool("laksa-opt", selfDir);
+    run(opts,
+        optPath,
+        buildOptArgs(
+            opts,
+            optPath,
+            dfgPipeline,
+            opts.inputFilename,
+            dfgPath));
+
+    std::string translatePath = findTool("laksa-translate", selfDir);
+    for (const auto &artifact : mocasinArtifacts) {
+        SmallString<128> artifactPath(mocasinDir);
+        sys::path::append(artifactPath, artifact.filename);
+        run(opts,
+            translatePath,
+            {translatePath,
+             std::string(dfgPath),
+             asFlag(artifact.translation),
+             "-o",
+             std::string(artifactPath)});
+        if (sys::path::extension(artifactPath) != ".sh") continue;
+        if (auto ec = sys::fs::setPermissions(
+                artifactPath,
+                sys::fs::perms::all_read | sys::fs::perms::owner_write
+                    | sys::fs::perms::all_exe)) {
+            errs() << "ladle: failed to make '" << artifactPath
+                   << "' executable: " << ec.message() << "\n";
+            return 1;
+        }
+    }
+
+    errs() << "INFO: Done, wrote Mocasin artifacts below '" << mocasinDir
+           << "'\n";
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -443,9 +687,9 @@ int main(int argc, char** argv)
     bool runOpt = !opts.passes.empty();
     bool runTranslate = !opts.translation.empty();
 
-    if (!opts.hls && !runOpt && !runTranslate) {
+    if (!opts.hls && !opts.cpuProfile && !runOpt && !runTranslate) {
         errs() << "ladle: nothing to do; specify --passes, --translation, "
-                  "and/or --hls\n";
+                  "--hls, --cpu-profile, --mocasin, and/or --dot\n";
         return 1;
     }
 
@@ -453,6 +697,8 @@ int main(int argc, char** argv)
     std::string selfDir = std::string(sys::path::parent_path(mainExe));
 
     if (opts.hls) return runHLSFlow(opts, selfDir);
+    if (opts.cpuProfile) return runCPUProfileFlow(opts, selfDir);
+    if (opts.mocasin) return runMocasinFlow(opts, selfDir);
 
     SmallString<128> tempPath;
     bool haveTemp = false;

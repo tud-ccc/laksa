@@ -2,12 +2,16 @@
 ///
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 
+#include "laksa-mlir/Conversion/ConvertToDFG/ConvertToDFG.h"
 #include "laksa-mlir/Conversion/ReshapedCopyToLoops/ReshapedCopyToLoops.h"
+#include "laksa-mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ConvertToEmitC/ConvertToEmitCPass.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -60,8 +64,8 @@ void mlir::laksa::addConvertToEmitCPasses(
     // Fold the reshapes bufferization left behind into the loads and stores
     // that consume them.
     pm.addPass(memref::createFoldMemRefAliasOpsPass());
-    pm.addPass(memref::createExpandStridedMetadataPass());
     pm.addPass(createConvertReshapedCopyToLoopsPass());
+    pm.addPass(memref::createExpandStridedMetadataPass());
     pm.addPass(createLowerAffinePass());
     pm.addPass(createCSEPass());
     pm.addPass(createCanonicalizerPass());
@@ -76,6 +80,16 @@ void mlir::laksa::addConvertToEmitCPasses(
     // cmpi/select pairs it does handle.
     pm.addPass(arith::createArithExpandOpsPass());
     pm.addPass(createConvertToEmitC());
+    pm.addPass(createReconcileUnrealizedCastsPass());
+}
+
+void mlir::laksa::addConvertToCPUProfilePasses(
+    OpPassManager &pm,
+    uint32_t maxAllocSizeInBytes)
+{
+    addComputationNodeOutliningPasses(pm);
+    pm.addPass(func::createFuncRemoveOutlinedFunctionWrappersPass());
+    addConvertToEmitCPasses(pm, maxAllocSizeInBytes);
 }
 
 void mlir::laksa::registerConvertToEmitCPipelines()
@@ -85,5 +99,11 @@ void mlir::laksa::registerConvertToEmitCPipelines()
         "Convert everything to the upstream emitc dialect",
         [](OpPassManager &pm, const ConvertToEmitCPipelineOptions &options) {
             addConvertToEmitCPasses(pm, options.maxAllocSizeInBytes);
+        });
+    PassPipelineRegistration<ConvertToEmitCPipelineOptions>(
+        "convert-to-laksa-cpu-profile",
+        "Outline DFG nodes and lower each one independently to emitc",
+        [](OpPassManager &pm, const ConvertToEmitCPipelineOptions &options) {
+            addConvertToCPUProfilePasses(pm, options.maxAllocSizeInBytes);
         });
 }
