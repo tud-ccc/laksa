@@ -1,0 +1,28 @@
+metadata: {source: laksa-model}
+execution:
+  processes:
+    profiles:
+      "main_node_0":
+        "K26_PL": {cycles: 10240}
+      "main_node_1":
+        "K26_PL": {cycles: 916}
+      "main_node_2":
+        "K26_PL": {cycles: 1025}
+      "main_node_3":
+        "K26_PL": {cycles: 17408}
+      "main_node_4":
+        "K26_PL": {cycles: 915}
+      "main_node_5":
+        "K26_PL": {cycles: 908}
+      "main_node_6":
+        "K26_PL": {cycles: 909}
+      "main_node_7":
+        "K26_PL": {cycles: 908}
+      "main_node_8":
+        "K26_PL": {cycles: 901}
+      "main_node_9":
+        "K26_PL": {cycles: 913}
+      "main_node_10":
+        "K26_PL": {cycles: 15300}
+      "main_node_11":
+        "K26_PL": {cycles: 806}
