@@ -147,7 +147,9 @@ jobs:
         with:
           context: .
           platforms: linux/${{ matrix.arch }}
-          build-args: VCS_REF=${{ github.sha }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            MOCASIN_REF=cps-tutorial
           provenance: false
           cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ matrix.arch }}
           cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}:buildcache-{1},mode=max', env.IMAGE, matrix.arch) || '' }}
