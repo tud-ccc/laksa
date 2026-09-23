@@ -18,14 +18,16 @@
         };
         mlirPkg = mlir.packages.${system}.mlir;
         pythonEnv = mlir.packages.${system}.pythonEnv;
+        clangStdenv = mlir.packages.${system}.clangStdenv;
         mlirPythonPath = "${mlirPkg}/python_packages/mlir_core";
       in
       {
-        devShells.default = pkgs.mkShell {
+        devShells.default = (pkgs.mkShell.override { stdenv = clangStdenv; }) {
+          hardeningDisable = [ "libcxxhardeningfast" ];
           packages = [
             pythonEnv
             pkgs.cmake pkgs.ninja pkgs.mold
-            pkgs.llvmPackages_22.clang
+            clangStdenv.cc
             mlirPkg
             pkgs.doxygen
             pkgs.gurobi
@@ -34,6 +36,8 @@
             pkgs.black
           ];
           shellHook = ''
+            export CC="${clangStdenv.cc}/bin/clang"
+            export CXX="${clangStdenv.cc}/bin/clang++"
             export LLVM_DIR="${mlirPkg}/lib/cmake/llvm"
             export MLIR_DIR="${mlirPkg}/lib/cmake/mlir"
             export LLVM_EXTERNAL_LIT="${mlirPkg}/bin/lit"

@@ -18,7 +18,6 @@ namespace nb = nanobind;
 
 using namespace nanobind::literals;
 
-using namespace llvm;
 using namespace mlir;
 using namespace mlir::python;
 using namespace mlir::python::nanobind_adaptors;

@@ -25,11 +25,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781462347,
-        "narHash": "sha256-R6/8h+8H/kiQm46BjgyS8fbaY39RG/IUCnk9LHbjyU8=",
+        "lastModified": 1790174402,
+        "narHash": "sha256-8uwwhmtIKf3VuHuG10OyvihUZdymPUT00SR6F9u+qA8=",
         "owner": "jhbi826c",
         "repo": "mlir-flake",
-        "rev": "f8698fdf2277af93c0a6bb459aa81de960f4d0f7",
+        "rev": "406c24e2b45fd0cddc88b21c41b3776ec2af6f1e",
         "type": "github"
       },
       "original": {

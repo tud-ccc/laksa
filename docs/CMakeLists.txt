@@ -11,6 +11,9 @@ if (DOXYGEN_FOUND)
     # Fall back to a system-wide sphinx-build if Python3_EXECUTABLE is not set.
     if (Python3_EXECUTABLE)
         set(SPHINX_CMD ${Python3_EXECUTABLE} -m sphinx)
+        set(SPHINX_INSTALL_DEPS
+            COMMAND ${Python3_EXECUTABLE} -m pip install
+                    -r ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt)
         message(STATUS "Sphinx will run via: ${Python3_EXECUTABLE} -m sphinx")
     else()
         find_program(SPHINX_BUILD_EXE sphinx-build)
@@ -68,6 +71,7 @@ if (DOXYGEN_FOUND)
         set(SPHINX_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sphinx)
 
         add_custom_target(build-laksa-doc
+            ${SPHINX_INSTALL_DEPS}
             COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
             # Remove stale Exhale RST files so symbols dropped from the XML
             # do not leave orphaned pages that cause Breathe warnings.

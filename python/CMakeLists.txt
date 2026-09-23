@@ -176,6 +176,7 @@ else()
 endif()
 
 add_custom_target(install-python-package
+    COMMAND ${_pip_cmd} "scikit-build-core>=0.9"
     COMMAND ${_pip_cmd}
         --no-build-isolation
         -e ${CMAKE_SOURCE_DIR}
@@ -186,6 +187,7 @@ add_custom_target(install-python-package
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Installing mlir-laksa Python package"
     USES_TERMINAL
+    VERBATIM
 )
 
 add_custom_target(check-laksa-python

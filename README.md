@@ -149,11 +149,10 @@ This target verifies every example still matches its `.mlir` counterpart, depend
 The `Doxygen` and `Sphinx` documentation is found under `build/docs/sphinx/index.html`:
 
 ```bash
-pip install -r docs/requirements.txt
 cmake --build build --target build-laksa-doc
 ```
 
-The Nix shell already provides Sphinx, so the first line is only needed elsewhere.
+The target installs `docs/requirements.txt` into the configured Python first.
 
 ## Compiling a design
 
