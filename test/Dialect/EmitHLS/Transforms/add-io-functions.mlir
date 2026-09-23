@@ -21,7 +21,7 @@
 // CHECK-LABEL: emithls.func @pad
 // CHECK-LABEL: emithls.func @conv
 // CHECK-LABEL: emithls.func @relu
-// CHECK-LABEL: emithls.func @kernel(%arg0: !emithls.ptr<i64>, %arg1: !emithls.ptr<i64>)
+// CHECK-LABEL: emithls.func @kernel(%arg0: !emithls.ptr<i64>, %arg1: !emithls.ptr<i64>) attributes {laksa.root}
 // CHECK: %[[V0:.*]] = emithls.variable as !emithls.array<8x!emithls.stream<i8>>
 // CHECK: %[[V1:.*]] = emithls.variable as !emithls.array<8x!emithls.stream<i8>>
 // CHECK: emithls.call @kernel_read_i8_0(%arg0, %[[V0]]) : (!emithls.ptr<i64>, !emithls.array<8x!emithls.stream<i8>>) -> ()
@@ -178,7 +178,7 @@ emithls.func @relu(%arg0: !emithls.array<8x!emithls.stream<i32>>, %arg1: !emithl
     }
   }
 }
-emithls.func @kernel(%arg0: !emithls.array<8x!emithls.stream<i8>>, %arg1: !emithls.array<8x!emithls.stream<i8>>) {
+emithls.func @kernel(%arg0: !emithls.array<8x!emithls.stream<i8>>, %arg1: !emithls.array<8x!emithls.stream<i8>>) attributes {laksa.root} {
   %var_array_0 = emithls.variable as !emithls.array<8x!emithls.stream<i8>>
   %var_array_1 = emithls.variable as !emithls.array<8x!emithls.stream<i32>>
   emithls.call @pad(%arg0, %var_array_0) : (!emithls.array<8x!emithls.stream<i8>>, !emithls.array<8x!emithls.stream<i8>>) -> ()

@@ -156,7 +156,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LLVM_ROOT=/opt/llvm-22 \
     GUROBI_HOME=/opt/gurobi \
     GRB_LICENSE_FILE=/opt/gurobi/gurobi.lic \
-    VIRTUAL_ENV=/opt/venv
+    VIRTUAL_ENV=/opt/venv \
+    SHELL=/bin/bash
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -183,10 +184,6 @@ RUN set -eux; \
     pip install --no-cache-dir -r /tmp/requirements.txt; \
     rm /tmp/requirements.txt; \
     pip install --no-cache-dir \
-        jupyterlab \
-        notebook \
-        ipykernel \
-        ipywidgets \
         matplotlib \
         pandas \
         scipy \
@@ -237,7 +234,6 @@ RUN set -eux; \
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 
-EXPOSE 8888
 WORKDIR /work
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

@@ -25,6 +25,7 @@
           packages = [
             pythonEnv
             pkgs.cmake pkgs.ninja pkgs.mold
+            pkgs.llvmPackages_22.clang
             mlirPkg
             pkgs.doxygen
             pkgs.gurobi
@@ -43,6 +44,7 @@
               ${pythonEnv}/bin/python3 -m venv .venv --system-site-packages
             fi
             source .venv/bin/activate
+            export PATH="$PWD/build/bin:$PATH"
             python -m pip install --upgrade pip
           '';
         };

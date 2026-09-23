@@ -8,6 +8,7 @@ from mlir_laksa.ir import (
     Location,
     Module,
     RankedTensorType,
+    UnitAttr,
 )
 from mlir_laksa.dialects import func
 import mlir_laksa.conversion as conversion
@@ -25,6 +26,7 @@ def build_stream(i32, tensor2) -> func.FuncOp:
 
 def build_call(i32, tensor2) -> func.FuncOp:
     func_op = func.FuncOp("call", ([i32, tensor2], [i32, tensor2]))
+    func_op.operation.attributes["laksa.root"] = UnitAttr.get()
     block = func_op.add_entry_block()
     with InsertionPoint(block):
         arg0, arg1 = block.arguments

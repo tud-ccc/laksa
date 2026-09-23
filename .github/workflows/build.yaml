@@ -2,7 +2,7 @@ name: Build LAKSA
 
 on:
   push:
-    branches: [main, cps-tutorial]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

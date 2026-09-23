@@ -389,6 +389,11 @@ struct RewriteFuncSignature : public OpConversionPattern<FuncOp> {
         rewriter.setInsertionPoint(op);
         auto newFunc =
             FuncOp::create(rewriter, loc, op.getSymName(), newFuncType);
+        for (NamedAttribute attr : op->getDiscardableAttrs()) {
+            if (attr.getName().getValue().starts_with("dse.")) continue;
+            newFunc->setDiscardableAttr(
+                attr.getName(), attr.getValue());
+        }
         SmallVector<Location> argLocs(newArgTypes.size(), loc);
         Block* entry = rewriter.createBlock(
             &newFunc.getBody(),

@@ -7,6 +7,7 @@
 
 #include "laksa-mlir/Dialect/DFG/IR/DFG.h"
 #include "laksa-mlir/Dialect/DFG/IR/DFGOps.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/IRMapping.h"
@@ -30,12 +31,6 @@ using namespace mlir;
 using namespace mlir::dfg;
 
 namespace {
-static bool containsCallOp(func::FuncOp op)
-{
-    return op.walk([](func::CallOp) { return WalkResult::interrupt(); })
-        .wasInterrupted();
-}
-
 struct NodeFuncToOperator : OpConversionPattern<func::FuncOp> {
     NodeFuncToOperator(TypeConverter &typeConverter, MLIRContext* context)
             : OpConversionPattern<func::FuncOp>(
@@ -48,7 +43,7 @@ struct NodeFuncToOperator : OpConversionPattern<func::FuncOp> {
         func::FuncOpAdaptor,
         ConversionPatternRewriter &rewriter) const override
     {
-        if (containsCallOp(op)) return failure();
+        if (op->hasAttr(laksa::kRootAttrName)) return failure();
         LAKSA_DEBUG(
             llvm::dbgs() << "Found node function @" << op.getSymName() << " at "
                          << op.getLoc());
@@ -100,11 +95,11 @@ struct GraphFuncToRegion : OpConversionPattern<func::FuncOp> {
         func::FuncOpAdaptor,
         ConversionPatternRewriter &rewriter) const override
     {
-        if (!containsCallOp(op)) return failure();
+        if (!op->hasAttr(laksa::kRootAttrName)) return failure();
         LAKSA_DEBUG(
             llvm::dbgs() << "Found graph function @" << op.getSymName()
                          << " at " << op.getLoc());
-        rewriter.replaceOpWithNewOp<RegionOp>(
+        auto regionOp = rewriter.replaceOpWithNewOp<RegionOp>(
             op,
             op.getSymName(),
             op.getFunctionType(),
@@ -131,6 +126,9 @@ struct GraphFuncToRegion : OpConversionPattern<func::FuncOp> {
                     }
                 }
             });
+        regionOp->setAttr(
+            laksa::kRootAttrName,
+            UnitAttr::get(rewriter.getContext()));
         LAKSA_DEBUG(
             llvm::dbgs()
             << "Replace the graph function with region operation.");

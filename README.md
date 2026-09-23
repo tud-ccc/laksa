@@ -62,28 +62,20 @@ Images for `linux/amd64` and `linux/arm64` are published to the GitHub Container
 docker pull ghcr.io/tud-ccc/laksa:latest
 ```
 
-The image carries the four tools on `PATH`, the `mlir_laksa` bindings importable from both the venv and the system interpreter, and JupyterLab.
-It starts in `/work`, so mount your working di there:
+The image carries the four tools on `PATH` and the `mlir_laksa` bindings importable from both the venv and the system interpreter.
+It starts in `/work`, so mount your working directory there:
 
 ```bash
 docker run --rm -it \
     -v "/PATH/TO/YOUR/WORK:/work" \
     -v "/PATH/TO/gurobi.lic:/opt/gurobi/gurobi.lic:ro" \
-    ghcr.io/tud-ccc/laksa:latest \
+    ghcr.io/tud-ccc/laksa:latest
 ```
 
 The license mount is not optional for that command: the pragma DSE pass in the HLS pipeline is Gurobi-backed.
 Without it the entrypoint warns and only the passes that do not need Gurobi still run.
 
-Port 8888 is exposed for notebooks:
-
-```bash
-docker run --rm -it -p 8888:8888 \
-    -v "/PATH/TO/gurobi.lic:/opt/gurobi/gurobi.lic:ro" \
-    -v "$PWD:/work" \
-    ghcr.io/tud-ccc/laksa:latest \
-    jupyter lab --ip 0.0.0.0 --allow-root --no-browser
-```
+Because of `--rm`, changes made inside the container are gone once it exits, unless they are in a mounted directory.
 
 To build the image from this repository instead:
 

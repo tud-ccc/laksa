@@ -5,6 +5,7 @@
 
 #include "gurobi_c++.h"
 #include "laksa-mlir/Dialect/EmitHLS/IR/EmitHLS.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
@@ -184,13 +185,9 @@ struct DSEGraph {
     DenseMap<Value, DSEEdge*> variableToEdge;
 };
 
-// A function whose body only declares variables and issues calls is the top
-// function.
 bool isTopFunction(FuncOp funcOp)
 {
-    return llvm::all_of(funcOp.getBody().front(), [](Operation &op) {
-        return isa<VariableOp, CallOp>(op);
-    });
+    return funcOp->hasAttr(laksa::kRootAttrName);
 }
 
 // A memory/stream bridge has both a pointer port and a stream/array port,

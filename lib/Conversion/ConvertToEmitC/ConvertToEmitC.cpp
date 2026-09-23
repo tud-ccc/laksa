@@ -2,12 +2,14 @@
 ///
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 
 #include "laksa-mlir/Conversion/ReshapedCopyToLoops/ReshapedCopyToLoops.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ConvertToEmitC/ConvertToEmitCPass.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -60,8 +62,8 @@ void mlir::laksa::addConvertToEmitCPasses(
     // Fold the reshapes bufferization left behind into the loads and stores
     // that consume them.
     pm.addPass(memref::createFoldMemRefAliasOpsPass());
-    pm.addPass(memref::createExpandStridedMetadataPass());
     pm.addPass(createConvertReshapedCopyToLoopsPass());
+    pm.addPass(memref::createExpandStridedMetadataPass());
     pm.addPass(createLowerAffinePass());
     pm.addPass(createCSEPass());
     pm.addPass(createCanonicalizerPass());
@@ -76,6 +78,7 @@ void mlir::laksa::addConvertToEmitCPasses(
     // cmpi/select pairs it does handle.
     pm.addPass(arith::createArithExpandOpsPass());
     pm.addPass(createConvertToEmitC());
+    pm.addPass(createReconcileUnrealizedCastsPass());
 }
 
 void mlir::laksa::registerConvertToEmitCPipelines()

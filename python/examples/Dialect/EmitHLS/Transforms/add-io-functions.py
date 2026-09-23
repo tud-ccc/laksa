@@ -17,6 +17,7 @@ from mlir_laksa.ir import (
     Module,
     RankedTensorType,
     TypeAttr,
+    UnitAttr,
 )
 from mlir_laksa.dialects import emithls, memref
 from mlir_laksa.passmanager import PassManager
@@ -388,6 +389,7 @@ def build_kernel(
         "kernel",
         TypeAttr.get(FunctionType.get([arr8_stream_i8, arr8_stream_i8], [])),
     )
+    func_op.operation.attributes["laksa.root"] = UnitAttr.get()
     block = func_op.body.blocks.append(arr8_stream_i8, arr8_stream_i8)
     with InsertionPoint(block):
         arg0, arg1 = block.arguments

@@ -3,6 +3,7 @@
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
 
+#include "laksa-mlir/Conversion/ConvertToDFG/ConvertToDFG.h"
 #include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 #include "laksa-mlir/Conversion/ConvertToEmitHLS/ConvertToEmitHLS.h"
 #include "laksa-mlir/Conversion/Passes.h"
@@ -29,6 +30,7 @@ inline void registerAllLAKSAMLIRPasses()
 
     // Conversion pipelines
     laksa::registerConvertToEmitCPipelines();
+    laksa::registerConvertToDFGPipeline();
     laksa::registerConvertToEmitHLSPipelines();
 }
 

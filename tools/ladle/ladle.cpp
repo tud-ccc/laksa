@@ -2,6 +2,7 @@
 ///
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
+/// @author     Robert Khasanov (robert.khasanov@tu-dresden.de)
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallString.h"
@@ -26,8 +27,8 @@ const char* const usage =
     "Usage: ladle [options] <input file>\n\n"
     "Options:\n"
     "  -o, --output=<file>    Output filename (default: null); with --hls,\n"
-    "                         the directory to write the artifacts into\n"
-    "                         (default: the current directory)\n"
+    "                         the artifact directory (default: the current\n"
+    "                         directory)\n"
     "  -p, --passes=<value>   Passes to run through laksa-opt\n"
     "  -t, --translation=<name>\n"
     "                         Translation for laksa-translate to run\n"
@@ -47,7 +48,11 @@ const char* const usage =
     "                           app/ref.h           scalar reference\n"
     "                           app/ref.c           output checker\n"
     "                           app/run.sh          loads and checks it\n"
-    "                         Cannot be combined with --passes or\n"
+    "                         Cannot be combined with --dot, --passes, or\n"
+    "                         --translation\n"
+    "      --dot              Run the DFG extraction pipeline and translate\n"
+    "                         the resulting graph to Graphviz DOT. Cannot be\n"
+    "                         combined with --hls, --passes, or\n"
     "                         --translation\n"
     "      --num-bram=<n>     With --hls, the number of BRAMs the pragma DSE\n"
     "                         may use (default: 288)\n"
@@ -100,6 +105,9 @@ const PassDebugType laksaPassDebugTypes[] = {
 
 /// The pass pipeline --hls runs before translating anything.
 const char* const hlsPipeline = "convert-to-emithls";
+const char* const dfgPipeline = "convert-to-dfg";
+const char* const dotTranslation = "dfg-to-dot";
+
 /// The EmitHLS IR --hls leaves behind next to the generated artifacts.
 const char* const hlsIRFilename = "hls.mlir";
 /// The scalar reference implementation comes from the same input lowered to
@@ -144,6 +152,7 @@ struct Options {
     std::string passes;
     std::string translation;
     bool hls = false;
+    bool dot = false;
     std::optional<unsigned> numBRAM;
     std::optional<unsigned> numDSP;
     unsigned verbosity = 0;
@@ -193,6 +202,10 @@ Options parseArgs(int argc, char** argv)
             opts.hls = true;
             continue;
         }
+        if (arg == "--dot") {
+            opts.dot = true;
+            continue;
+        }
         if (arg.size() >= 2 && arg[0] == '-' && arg[1] != '-'
             && arg.drop_front().find_first_not_of('v') == StringRef::npos) {
             // -v, -vv, -vvv, ... each 'v' bumps the verbosity level by one.
@@ -239,10 +252,25 @@ Options parseArgs(int argc, char** argv)
         }
     }
 
-    if (opts.hls && (!opts.passes.empty() || !opts.translation.empty())) {
+    if (opts.hls
+        && (opts.dot || !opts.passes.empty() || !opts.translation.empty())) {
         errs() << "ladle: '--hls' brings its own pipeline and translations; "
-                  "it cannot be combined with '--passes' or '--translation'\n";
+                  "it cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
         exit(1);
+    }
+
+    if (opts.dot
+        && (opts.hls || !opts.passes.empty() || !opts.translation.empty())) {
+        errs() << "ladle: '--dot' brings its own pipeline and translation; it "
+                  "cannot be combined with another built-in flow, "
+                  "'--passes', or '--translation'\n";
+        exit(1);
+    }
+
+    if (opts.dot) {
+        opts.passes = dfgPipeline;
+        opts.translation = dotTranslation;
     }
 
     if (!opts.hls && (opts.numBRAM || opts.numDSP)) {
@@ -407,9 +435,16 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         sys::path::append(irPath, artifact.ir);
         SmallString<128> artifactPath(outputDir);
         sys::path::append(artifactPath, artifact.subdir, artifact.filename);
-        errs() << "INFO: Writing " << artifact.subdir << "/"
-               << artifact.filename << " from " << artifact.ir << " through "
-               << artifact.translation << "...\n";
+        SmallString<128> displayPath;
+        if (StringRef(artifact.subdir).empty())
+            displayPath = artifact.filename;
+        else
+            sys::path::append(
+                displayPath,
+                artifact.subdir,
+                artifact.filename);
+        errs() << "INFO: Writing " << displayPath << " from " << artifact.ir
+               << " through " << artifact.translation << "...\n";
         run(opts,
             translatePath,
             {translatePath,
@@ -445,7 +480,7 @@ int main(int argc, char** argv)
 
     if (!opts.hls && !runOpt && !runTranslate) {
         errs() << "ladle: nothing to do; specify --passes, --translation, "
-                  "and/or --hls\n";
+                  "--hls, and/or --dot\n";
         return 1;
     }
 

@@ -10,6 +10,7 @@
 #include "laksa-mlir/Dialect/DFG/IR/DFGBase.h"
 #include "laksa-mlir/Dialect/DFG/IR/DFGTypes.h"
 #include "laksa-mlir/Dialect/DFG/Interfaces/NodeInterface.h"
+#include "laksa-mlir/IR/LaksaAttributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpDefinition.h"
@@ -1220,6 +1221,9 @@ struct ReorderContentOperations final : public OpRewritePattern<RegionOp> {
                 for (auto &instance : instances)
                     rewriter.clone(*instance, mapper);
             });
+
+        if (Attribute rootAttr = op->getAttr(laksa::kRootAttrName))
+            newRegion->setAttr(laksa::kRootAttrName, rootAttr);
 
         // Save this new region as reordered
         rewriter.replaceOp(op, newRegion);
