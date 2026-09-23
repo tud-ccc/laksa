@@ -1458,6 +1458,29 @@ int64_t countDirectOps(Block &block)
     return count;
 }
 
+// Per-iteration latency of a chain's leaf loop.
+int64_t computeLeafLatency(ForOp leaf)
+{
+    return computeIterationDSP(leaf) > 0
+               ? countDirectOps(leaf.getBody().front())
+               : 2;
+}
+
+// Latency of one pass through the chain rooted at "root" with every loop in
+// it fully unrolled.
+int64_t computeUnrolledChainLatency(
+    ForOp root,
+    const DenseMap<Operation*, SmallVector<ForOp>> &immediateChildOf)
+{
+    ForOp cur = root;
+    while (true) {
+        SmallVector<ForOp> children =
+            immediateChildOf.lookup(cur.getOperation());
+        if (children.empty()) return computeLeafLatency(cur);
+        cur = children.front();
+    }
+}
+
 // One candidate chain's total cycles, from anchor "root" down to its leaf.
 // Every chain has exactly one pipeline point, so it runs as one continuous
 // pipeline: the leaf's own op count sets the fill/drain latency, and every
@@ -1488,9 +1511,7 @@ GRBValue computeChainCycles(
         SmallVector<ForOp> children =
             immediateChildOf.lookup(cur.getOperation());
         if (children.empty()) {
-            leafCyclesPerIter = computeIterationDSP(cur) > 0
-                                    ? countDirectOps(cur.getBody().front())
-                                    : 2;
+            leafCyclesPerIter = computeLeafLatency(cur);
             LAKSA_DEBUG(
                 llvm::dbgs() << "    " << cur.getLoc() << ": leaf, "
                              << leafCyclesPerIter << " cycles/iter");
@@ -1514,6 +1535,139 @@ GRBValue computeChainCycles(
     return GRBValue(cyclesVar);
 }
 
+GRBValue computeBlockCycles(
+    GRBModel &model,
+    DSENode &node,
+    Block &block,
+    const DenseSet<Operation*> &candidateSet,
+    const DenseMap<Operation*, SmallVector<ForOp>> &immediateChildOf,
+    const std::string &namePrefix);
+
+// Collects the chain roots in "block" and its fully unrolled latency, if
+// every loop in it is a chain root or a trip-count-1 wrapper of such.
+bool collectMergeableChains(
+    Block &block,
+    const DenseSet<Operation*> &candidateSet,
+    const DenseMap<Operation*, SmallVector<ForOp>> &immediateChildOf,
+    SmallVectorImpl<ForOp> &roots,
+    int64_t &latency)
+{
+    latency = 0;
+    for (Operation &op : block) {
+        if (auto loop = dyn_cast<ForOp>(op)) {
+            if (candidateSet.contains(loop)) {
+                roots.push_back(loop);
+                latency += computeUnrolledChainLatency(loop, immediateChildOf);
+                continue;
+            }
+            int64_t inner = 0;
+            if (loop.getTripCount() != 1
+                || !collectMergeableChains(
+                    loop.getBody().front(),
+                    candidateSet,
+                    immediateChildOf,
+                    roots,
+                    inner))
+                return false;
+            latency += inner;
+        } else if (auto ifOp = dyn_cast<IfOp>(op)) {
+            int64_t thenLatency = 0;
+            int64_t elseLatency = 0;
+            if (!collectMergeableChains(
+                    ifOp.getThenRegion().front(),
+                    candidateSet,
+                    immediateChildOf,
+                    roots,
+                    thenLatency))
+                return false;
+            if (!ifOp.getElseRegion().empty()
+                && !collectMergeableChains(
+                    ifOp.getElseRegion().front(),
+                    candidateSet,
+                    immediateChildOf,
+                    roots,
+                    elseLatency))
+                return false;
+            latency += std::max(thenLatency, elseLatency);
+        }
+    }
+    return true;
+}
+
+// Cycles for a block of several sibling chains under non-candidate loops
+// totalling "extraIterationMultiplier" iterations: one pipeline over those
+// iterations if every chain is pipelined at its root and fully unrolled,
+// otherwise the chains' plain sequential sum repeated per iteration.
+std::optional<GRBValue> tryMergeBlock(
+    GRBModel &model,
+    DSENode &node,
+    Block &block,
+    const DenseSet<Operation*> &candidateSet,
+    const DenseMap<Operation*, SmallVector<ForOp>> &immediateChildOf,
+    int64_t extraIterationMultiplier,
+    const std::string &namePrefix)
+{
+    SmallVector<ForOp> roots;
+    int64_t latency = 0;
+    if (!collectMergeableChains(
+            block,
+            candidateSet,
+            immediateChildOf,
+            roots,
+            latency)
+        || roots.empty())
+        return std::nullopt;
+
+    GRBVar merged =
+        model.addVar(0.0, 1.0, 0.0, GRB_BINARY, namePrefix + "_merged");
+    for (auto [i, root] : llvm::enumerate(roots)) {
+        LoopDSEInfo &info = node.loops[root.getOperation()];
+        std::string name = namePrefix + "_merged_root" + std::to_string(i);
+        model.addConstr(
+            GRBLinExpr(merged) <= info.pipelined.getExpr().getLinExpr(),
+            name + "_pipelined");
+        model.addConstr(
+            info.unrollFactor.getExpr().getLinExpr()
+                >= double(root.getTripCount()) * merged,
+            name + "_unrolled");
+    }
+
+    GRBValue sequential = computeBlockCycles(
+        model,
+        node,
+        block,
+        candidateSet,
+        immediateChildOf,
+        namePrefix + "_seq");
+    GRBVar sequentialCycles = materializeVar(
+        model,
+        GRBValue(sequential.getExpr() * double(extraIterationMultiplier)),
+        namePrefix + "_seq_cycles");
+
+    GRBVar cyclesVar = model.addVar(
+        0.0,
+        GRB_INFINITY,
+        0.0,
+        GRB_INTEGER,
+        namePrefix + "_cycles");
+    model.addGenConstrIndicator(
+        merged,
+        1,
+        GRBLinExpr(cyclesVar) == double(extraIterationMultiplier + latency - 1),
+        namePrefix + "_use_merged");
+    model.addGenConstrIndicator(
+        merged,
+        0,
+        GRBLinExpr(cyclesVar) == sequentialCycles,
+        namePrefix + "_use_sequential");
+    LAKSA_DEBUG(
+        llvm::dbgs()
+        << "    " << roots.size() << " sibling chain(s): merged cycles = "
+        << extraIterationMultiplier << " + " << latency
+        << " - 1, else sequential x " << extraIterationMultiplier);
+    return GRBValue(cyclesVar);
+}
+
 // If "block" contains nothing but a single loop, all the way down to a
 // candidate chain's root, returns that chain's cycles with every unwrapped
 // loop's own trip count folded into its combined iterations. Also succeeds
@@ -1534,6 +1688,15 @@ std::optional<GRBValue> tryFlattenToChain(
     // anything else is already treated as free and silently skipped, so
     // only those count against "exactly one thing here" for flattening.
     auto isChainOp = [](Operation &op) { return isa<ForOp, IfOp>(op); };
+    if (llvm::count_if(block, isChainOp) > 1)
+        return tryMergeBlock(
+            model,
+            node,
+            block,
+            candidateSet,
+            immediateChildOf,
+            extraIterationMultiplier,
+            namePrefix);
     if (llvm::count_if(block, isChainOp) != 1) return std::nullopt;
     Operation &only = *llvm::find_if(block, isChainOp);
 
