@@ -439,10 +439,7 @@ int runHLSFlow(const Options &opts, StringRef selfDir)
         if (StringRef(artifact.subdir).empty())
             displayPath = artifact.filename;
         else
-            sys::path::append(
-                displayPath,
-                artifact.subdir,
-                artifact.filename);
+            sys::path::append(displayPath, artifact.subdir, artifact.filename);
         errs() << "INFO: Writing " << displayPath << " from " << artifact.ir
                << " through " << artifact.translation << "...\n";
         run(opts,

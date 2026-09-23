@@ -26,7 +26,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 
 #define DEBUG_TYPE "affine-to-emithls"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(llvm::dbgs() << "[affine-to-emithls] "; X; llvm::dbgs() << "\n")
 
 namespace mlir {

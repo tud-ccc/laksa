@@ -14,7 +14,7 @@
 #include <mlir/Dialect/Index/IR/IndexDialect.h>
 
 #define DEBUG_TYPE "index-to-emithls"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(llvm::dbgs() << "[index-to-emithls] "; X; llvm::dbgs() << "\n")
 
 namespace mlir {

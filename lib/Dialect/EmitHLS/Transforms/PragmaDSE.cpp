@@ -186,9 +186,7 @@ struct DSEGraph {
 };
 
 bool isTopFunction(FuncOp funcOp)
-{
-    return funcOp->hasAttr(laksa::kRootAttrName);
-}
+{ return funcOp->hasAttr(laksa::kRootAttrName); }
 
 // A memory/stream bridge has both a pointer port and a stream/array port,
 // since it just moves data rather than computing.

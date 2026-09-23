@@ -19,7 +19,8 @@ void registerEmitHLSToLaksaRunScriptTranslation()
 {
     TranslateFromMLIRRegistration reg(
         "emithls-to-laksa-run-script",
-        "translate the design to a shell script loading and checking it on a Kria board",
+        "translate the design to a shell script loading and checking it on a "
+        "Kria board",
         [](ModuleOp op, raw_ostream &output) {
             return emithls::translateEmitHLSToLaksaRunScript(op, output);
         },

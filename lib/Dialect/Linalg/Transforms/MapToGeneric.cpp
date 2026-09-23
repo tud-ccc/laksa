@@ -21,7 +21,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 
 #define DEBUG_TYPE "linalg-map-to-generic"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[linalg-map-to-generic] "; X; llvm::dbgs() << "\n")
 

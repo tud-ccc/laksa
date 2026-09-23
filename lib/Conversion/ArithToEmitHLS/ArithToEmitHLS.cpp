@@ -13,7 +13,7 @@
 #include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "arith-to-emithls"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(llvm::dbgs() << "[arith-to-emithls] "; X; llvm::dbgs() << "\n")
 
 namespace mlir {

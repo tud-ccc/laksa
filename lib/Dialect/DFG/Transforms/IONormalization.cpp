@@ -27,7 +27,7 @@
 #include <utility>
 
 #define DEBUG_TYPE "dfg-io-normalization"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[dfg-io-normalization] "; X; llvm::dbgs() << "\n")
 
@@ -684,7 +684,8 @@ struct ProcessBodyRewriter {
     {
         switch (target.style) {
         case IOStyle::Accumulate:
-            LAKSA_DEBUG(llvm::dbgs() << "  Using accumulate style body rewrite");
+            LAKSA_DEBUG(
+                llvm::dbgs() << "  Using accumulate style body rewrite");
             return rewriteAccumulateStyle(
                 op,
                 target,
@@ -712,7 +713,8 @@ private:
     {
         auto newFunctionType =
             buildNormalizedFunctionType(op, target, rewriter);
-        LAKSA_DEBUG(llvm::dbgs() << "  The new signature is " << newFunctionType);
+        LAKSA_DEBUG(
+            llvm::dbgs() << "  The new signature is " << newFunctionType);
 
         auto newProcessOp = ProcessOp::create(
             rewriter,
@@ -840,7 +842,8 @@ private:
                 if (attr.getName() != "accu_at")
                     newAllocOp->setAttr(attr.getName(), attr.getValue());
             mapper.map(allocOp.getResult(), newAllocOp.getResult());
-            LAKSA_DEBUG(llvm::dbgs() << "    New alloc created: " << newAllocOp);
+            LAKSA_DEBUG(
+                llvm::dbgs() << "    New alloc created: " << newAllocOp);
         };
         auto emitPush = [&](OpBuilder &b) {
             PushMemRefOp::create(
@@ -1098,7 +1101,8 @@ private:
     {
         auto newFunctionType =
             buildNormalizedFunctionType(op, target, rewriter);
-        LAKSA_DEBUG(llvm::dbgs() << "  The new signature is " << newFunctionType);
+        LAKSA_DEBUG(
+            llvm::dbgs() << "  The new signature is " << newFunctionType);
 
         auto newProcessOp = ProcessOp::create(
             rewriter,
@@ -1395,7 +1399,8 @@ private:
     {
         auto newFunctionType =
             buildNormalizedFunctionType(op, target, rewriter);
-        LAKSA_DEBUG(llvm::dbgs() << "  The new signature is " << newFunctionType);
+        LAKSA_DEBUG(
+            llvm::dbgs() << "  The new signature is " << newFunctionType);
 
         auto newProcessOp = ProcessOp::create(
             rewriter,

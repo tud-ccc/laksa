@@ -19,7 +19,7 @@
 #include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "dfg-collapse-unit-dims"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[dfg-collapse-unit-dims] "; X; llvm::dbgs() << "\n")
 
@@ -276,7 +276,8 @@ static FailureOr<ProcessCollapsePlan> analyzeProcess(ProcessOp op)
     }
 
     if (!isSupportedProcessBody(op)) {
-        LAKSA_DEBUG(llvm::dbgs() << "  body contains unsupported ops, skipping");
+        LAKSA_DEBUG(
+            llvm::dbgs() << "  body contains unsupported ops, skipping");
         return failure();
     }
     if (failed(buildAllocKeptMap(
@@ -754,7 +755,8 @@ LogicalResult RegionRewriter::rewrite(IRRewriter &rewriter)
 
     auto newRegionFnType =
         rewriter.getFunctionType(newBoundaryInputTypes, newBoundaryOutputTypes);
-    LAKSA_DEBUG(llvm::dbgs() << "  new boundary signature: " << newRegionFnType);
+    LAKSA_DEBUG(
+        llvm::dbgs() << "  new boundary signature: " << newRegionFnType);
 
     rewriter.setInsertionPoint(op);
     LogicalResult bodyResult = success();

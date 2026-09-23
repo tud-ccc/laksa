@@ -17,7 +17,7 @@
 #include <optional>
 
 #define DEBUG_TYPE "emithls-fold-expression"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[emithls-fold-expression] "; X; llvm::dbgs() << "\n")
 

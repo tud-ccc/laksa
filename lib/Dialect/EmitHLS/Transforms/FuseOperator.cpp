@@ -14,7 +14,7 @@
 #include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "emithls-fuse-operator"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[emithls-fuse-operator] "; X; llvm::dbgs() << "\n")
 
@@ -62,7 +62,8 @@ struct FuseAssignPattern : public OpRewritePattern<UpdateOp> {
             }
             overwritten.insert(updateVar);
         }
-        LAKSA_DEBUG(llvm::dbgs() << "Resolve: " << value << " -> no proxy found");
+        LAKSA_DEBUG(
+            llvm::dbgs() << "Resolve: " << value << " -> no proxy found");
         return value;
     }
 
@@ -110,7 +111,8 @@ struct FuseAssignPattern : public OpRewritePattern<UpdateOp> {
             val);
         rewriter.eraseOp(updateOp);
         if (arithOnlyUsedHere) {
-            LAKSA_DEBUG(llvm::dbgs() << "  Erasing dead " << arithOp->getName());
+            LAKSA_DEBUG(
+                llvm::dbgs() << "  Erasing dead " << arithOp->getName());
             rewriter.eraseOp(arithOp);
         }
         return success();

@@ -13,7 +13,7 @@
 #include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "emithls-merge-cast-chain"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[emithls-merge-cast-chain] "; X;                      \
         llvm::dbgs() << "\n")

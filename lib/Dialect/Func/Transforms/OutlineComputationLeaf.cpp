@@ -17,7 +17,7 @@
 #include <mlir/Dialect/Linalg/IR/LinalgInterfaces.h>
 
 #define DEBUG_TYPE "func-outline-computation-leaf"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[func-outline-computation-leaf] "; X;                 \
         llvm::dbgs() << "\n")
@@ -272,7 +272,8 @@ struct FuncOutlineComputationLeafPass
                 return outlineNode(rewriter, op, operands);
             }
         } else if (auto padOp = dyn_cast<tensor::PadOp>(op)) {
-            LAKSA_DEBUG(llvm::dbgs() << "Outlining pad op at " << padOp.getLoc());
+            LAKSA_DEBUG(
+                llvm::dbgs() << "Outlining pad op at " << padOp.getLoc());
             SmallVector<Value> operands;
             operands.push_back(padOp.getSource());
             llvm::append_range(operands, padOp.getLow());

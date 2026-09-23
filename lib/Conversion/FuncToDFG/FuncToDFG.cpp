@@ -19,7 +19,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 
 #define DEBUG_TYPE "func-to-dfg"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(llvm::dbgs() << "[func-to-dfg] "; X; llvm::dbgs() << "\n")
 
 namespace mlir {
@@ -170,7 +170,8 @@ struct CallToInstantiate : OpConversionPattern<func::CallOp> {
                         loc,
                         "Cannot find channel port map.");
                 inputs.push_back(it->second);
-                LAKSA_DEBUG(llvm::dbgs() << "Use channel's input port as input.");
+                LAKSA_DEBUG(
+                    llvm::dbgs() << "Use channel's input port as input.");
             }
         }
         for (auto result : op.getResults()) {
@@ -184,7 +185,8 @@ struct CallToInstantiate : OpConversionPattern<func::CallOp> {
                 callResultChannelMap.insert(
                     {result, newChannel.getOutputPort()});
                 outputs.push_back(newChannel.getInputPort());
-                LAKSA_DEBUG(llvm::dbgs() << "Created ChannelOp for call result.");
+                LAKSA_DEBUG(
+                    llvm::dbgs() << "Created ChannelOp for call result.");
             }
         }
 

@@ -38,8 +38,7 @@ LogicalResult StreamType::verify(
     Type elementType)
 {
     if (!llvm::isa<IntegerType>(elementType))
-        return emitError()
-               << "Only integers are currently supported in stream";
+        return emitError() << "Only integers are currently supported in stream";
     return success();
 }
 

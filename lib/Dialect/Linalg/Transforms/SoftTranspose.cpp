@@ -14,7 +14,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 
 #define DEBUG_TYPE "linalg-soft-transpose"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[linalg-soft-transpose] "; X; llvm::dbgs() << "\n")
 

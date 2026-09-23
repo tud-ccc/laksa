@@ -16,7 +16,7 @@
 #include <mlir/IR/Region.h>
 
 #define DEBUG_TYPE "dfg-inline-embed-region"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[dfg-inline-embed-region] "; X; llvm::dbgs() << "\n")
 

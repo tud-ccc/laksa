@@ -23,7 +23,7 @@
 #include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
 #define DEBUG_TYPE "emithls-resolve-helpers"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[emithls-resolve-helpers] "; X; llvm::dbgs() << "\n")
 
@@ -855,7 +855,8 @@ struct ResolveFillerAlloc : OpRewritePattern<memref::AllocOp> {
             << "  Created filler variable " << fillVar.getVariable());
 
         for (memref::LoadOp load : loads) {
-            LAKSA_DEBUG(llvm::dbgs() << "  Replacing load " << load.getResult());
+            LAKSA_DEBUG(
+                llvm::dbgs() << "  Replacing load " << load.getResult());
             rewriter.replaceOp(load, fillVar.getVariable());
         }
         rewriter.eraseOp(op);

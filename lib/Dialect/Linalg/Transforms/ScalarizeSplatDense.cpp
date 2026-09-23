@@ -30,7 +30,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 
 #define DEBUG_TYPE "linalg-scalarize-splat-dense"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[linalg-scalarize-splat-dense] "; X;                  \
         llvm::dbgs() << "\n")

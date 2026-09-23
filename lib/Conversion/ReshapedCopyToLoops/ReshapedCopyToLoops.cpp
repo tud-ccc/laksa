@@ -73,9 +73,9 @@ struct Window {
 
 static bool hasDynamicValue(ArrayRef<int64_t> values)
 {
-    return llvm::any_of(
-        values,
-        [](int64_t value) { return ShapedType::isDynamic(value); });
+    return llvm::any_of(values, [](int64_t value) {
+        return ShapedType::isDynamic(value);
+    });
 }
 
 static bool isInBounds(const Window &window, ArrayRef<int64_t> shape)
@@ -115,11 +115,8 @@ static std::optional<Window> windowOf(Value value)
         if (!source) return std::nullopt;
 
         Window window{source->buffer, {}, {}};
-        for (auto [sourceStart, sourceStep, offset, stride] : llvm::zip_equal(
-                 source->starts,
-                 source->steps,
-                 offsets,
-                 strides)) {
+        for (auto [sourceStart, sourceStep, offset, stride] :
+             llvm::zip_equal(source->starts, source->steps, offsets, strides)) {
             window.starts.push_back(sourceStart + offset * sourceStep);
             window.steps.push_back(sourceStep * stride);
         }
@@ -324,10 +321,8 @@ struct WindowedCopyToLoops : public OpRewritePattern<memref::CopyOp> {
 
         auto indicesFor = [&](const Window &window) {
             SmallVector<Value> indices;
-            for (auto [start, step, inductionVar] : llvm::zip_equal(
-                     window.starts,
-                     window.steps,
-                     inductionVars)) {
+            for (auto [start, step, inductionVar] :
+                 llvm::zip_equal(window.starts, window.steps, inductionVars)) {
                 Value index = inductionVar;
                 if (index && step != 1) {
                     Value factor =
@@ -335,7 +330,8 @@ struct WindowedCopyToLoops : public OpRewritePattern<memref::CopyOp> {
                     index = arith::MulIOp::create(rewriter, loc, index, factor);
                 }
                 if (!index) {
-                    index = arith::ConstantIndexOp::create(rewriter, loc, start);
+                    index =
+                        arith::ConstantIndexOp::create(rewriter, loc, start);
                 } else if (start != 0) {
                     Value offset =
                         arith::ConstantIndexOp::create(rewriter, loc, start);

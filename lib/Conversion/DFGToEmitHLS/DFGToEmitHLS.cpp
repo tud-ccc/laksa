@@ -23,7 +23,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 
 #define DEBUG_TYPE "dfg-to-emithls"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(llvm::dbgs() << "[dfg-to-emithls] "; X; llvm::dbgs() << "\n")
 
 namespace mlir {
@@ -349,7 +349,8 @@ struct PushMemRefToForLoop : OpConversionPattern<dfg::PushMemRefOp> {
                     loopLoc,
                     tokenMemref,
                     indices);
-                LAKSA_DEBUG(llvm::dbgs() << "    Load the value from the buffer");
+                LAKSA_DEBUG(
+                    llvm::dbgs() << "    Load the value from the buffer");
                 StreamWriteOp::create(
                     loopBuilder,
                     loopLoc,
@@ -387,7 +388,8 @@ struct ChannelToVariable : OpConversionPattern<dfg::ChannelOp> {
             loc,
             portType,
             /*initNumber=*/Attribute{});
-        LAKSA_DEBUG(llvm::dbgs() << "  Replaced channel with variable " << varOp);
+        LAKSA_DEBUG(
+            llvm::dbgs() << "  Replaced channel with variable " << varOp);
 
         // Cast the emithls.variable to dfg port types
         auto inCast = UnrealizedConversionCastOp::create(

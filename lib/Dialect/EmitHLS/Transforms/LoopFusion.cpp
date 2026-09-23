@@ -18,7 +18,7 @@
 #include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "emithls-loop-fusion"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[emithls-loop-fusion] "; X; llvm::dbgs() << "\n")
 

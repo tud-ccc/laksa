@@ -20,7 +20,7 @@
 #include <utility>
 
 #define DEBUG_TYPE "dfg-channel-fanout-expansion"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[dfg-channel-fanout-expansion] "; X;                  \
         llvm::dbgs() << "\n")

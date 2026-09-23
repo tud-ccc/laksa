@@ -3,9 +3,9 @@
 /// @file
 /// @author     Jiahong Bi (jiahong.bi@tu-dresden.de)
 
-#include "mlir/InitAllDialects.h"
 #include "laksa-mlir/Dialect/DFG/IR/DFG.h"
 #include "laksa-mlir/Target/DFGToDot/DotEmitter.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
 
 using namespace mlir;

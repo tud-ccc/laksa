@@ -20,7 +20,7 @@
 #include <mlir/IR/Value.h>
 
 #define DEBUG_TYPE "dfg-operator-to-process"
-#define LAKSA_DEBUG(X)                                                           \
+#define LAKSA_DEBUG(X)                                                         \
     LLVM_DEBUG(                                                                \
         llvm::dbgs() << "[dfg-operator-to-process] "; X; llvm::dbgs() << "\n")
 
