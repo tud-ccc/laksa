@@ -14,6 +14,5 @@ flake.nix
 flake.lock
 
 dse.log
-examples/cps26/solutions.ipynb
 **/__pycache__
 *.py[cod]

@@ -6,9 +6,7 @@
 
 #include "laksa-mlir/Conversion/ConvertToEmitC/ConvertToEmitC.h"
 
-#include "laksa-mlir/Conversion/ConvertToDFG/ConvertToDFG.h"
 #include "laksa-mlir/Conversion/ReshapedCopyToLoops/ReshapedCopyToLoops.h"
-#include "laksa-mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ConvertToEmitC/ConvertToEmitCPass.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
@@ -83,15 +81,6 @@ void mlir::laksa::addConvertToEmitCPasses(
     pm.addPass(createReconcileUnrealizedCastsPass());
 }
 
-void mlir::laksa::addConvertToCPUProfilePasses(
-    OpPassManager &pm,
-    uint32_t maxAllocSizeInBytes)
-{
-    addComputationNodeOutliningPasses(pm);
-    pm.addPass(func::createFuncRemoveOutlinedFunctionWrappersPass());
-    addConvertToEmitCPasses(pm, maxAllocSizeInBytes);
-}
-
 void mlir::laksa::registerConvertToEmitCPipelines()
 {
     PassPipelineRegistration<ConvertToEmitCPipelineOptions>(
@@ -99,11 +88,5 @@ void mlir::laksa::registerConvertToEmitCPipelines()
         "Convert everything to the upstream emitc dialect",
         [](OpPassManager &pm, const ConvertToEmitCPipelineOptions &options) {
             addConvertToEmitCPasses(pm, options.maxAllocSizeInBytes);
-        });
-    PassPipelineRegistration<ConvertToEmitCPipelineOptions>(
-        "convert-to-laksa-cpu-profile",
-        "Outline DFG nodes and lower each one independently to emitc",
-        [](OpPassManager &pm, const ConvertToEmitCPipelineOptions &options) {
-            addConvertToCPUProfilePasses(pm, options.maxAllocSizeInBytes);
         });
 }

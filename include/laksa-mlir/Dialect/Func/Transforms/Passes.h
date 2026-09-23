@@ -17,7 +17,6 @@ namespace mlir::func {
 //===----------------------------------------------------------------------===//
 
 std::unique_ptr<Pass> createFuncOutlineComputationLeafPass();
-std::unique_ptr<Pass> createFuncRemoveOutlinedFunctionWrappersPass();
 
 //===----------------------------------------------------------------------===//
 // Registration

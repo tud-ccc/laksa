@@ -6,14 +6,9 @@
 namespace mlir {
 
 void registerDFGToDotTranslation();
-void registerDFGToMocasinTranslation();
-void registerEmitCToCPUProfileTranslation();
-void registerEmitCToCPUProfileRunScriptTranslation();
 void registerEmitCToLaksaRefTranslation();
 void registerEmitHLSToCppTranslation();
 void registerEmitHLSToHLSBuildScriptTranslation();
-void registerEmitHLSToHLSProfileScriptTranslation();
-void registerEmitHLSToFPGAModelProfileTranslation();
 void registerEmitHLSToHLSTclTranslation();
 void registerEmitHLSToKriaDtsiTranslation();
 void registerEmitHLSToLaksaAppTranslation();
@@ -25,14 +20,9 @@ inline void registerAllLAKSAMLIRTranslations()
 {
     static bool initOnce = []() {
         registerDFGToDotTranslation();
-        registerDFGToMocasinTranslation();
-        registerEmitCToCPUProfileTranslation();
-        registerEmitCToCPUProfileRunScriptTranslation();
         registerEmitCToLaksaRefTranslation();
         registerEmitHLSToCppTranslation();
         registerEmitHLSToHLSBuildScriptTranslation();
-        registerEmitHLSToHLSProfileScriptTranslation();
-        registerEmitHLSToFPGAModelProfileTranslation();
         registerEmitHLSToHLSTclTranslation();
         registerEmitHLSToKriaDtsiTranslation();
         registerEmitHLSToLaksaAppTranslation();

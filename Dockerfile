@@ -13,8 +13,6 @@ ARG LLVM_ASSET_AMD64=llvm-22-amd64.tar.zst
 ARG LLVM_ASSET_ARM64=llvm-22-arm64.tar.zst
 ARG GUROBI_VERSION=12.0.3
 ARG BUILD_TYPE=Release
-ARG MOCASIN_REPOSITORY=https://github.com/tud-ccc/mocasin.git
-ARG MOCASIN_REF=cps-tutorial
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LLVM_ROOT=/opt/llvm-22 \
@@ -28,12 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         clang \
         cmake \
         curl \
-        git \
         lld \
-        libboost-dev \
-        libboost-graph-dev \
-        liblua5.3-dev \
-        lua5.3 \
         mold \
         ninja-build \
         patchelf \
@@ -93,16 +86,6 @@ RUN set -eux; \
 # The build context is this repository; see .dockerignore for what is excluded.
 COPY . /src/laksa
 
-# --- Mocasin -----------------------------------------------------------------
-# Build Mocasin and its native dependencies in the builder. LAKSA's Python
-# requirements constrain shared packages such as NumPy so both projects can
-# coexist in the same runtime environment.
-RUN set -eux; \
-    pip wheel --no-cache-dir \
-        --wheel-dir /opt/mocasin-wheels \
-        --constraint /src/laksa/python/requirements.txt \
-        "mocasin @ git+${MOCASIN_REPOSITORY}@${MOCASIN_REF}"
-
 # --- Configure and build -----------------------------------------------------
 RUN set -eux; \
     cd /src/laksa; \
@@ -138,20 +121,9 @@ RUN set -eux; \
     \
     cd /src/laksa; \
     DESTDIR=/rootfs cmake --install build --component LAKSATools; \
-    python3 -m pip install \
-        --no-cache-dir \
-        --no-deps \
-        --no-build-isolation \
-        --root /rootfs \
-        -C cmake.define.MLIR_DIR="${LLVM_ROOT}/build/lib/cmake/mlir" \
-        -C cmake.define.LLVM_DIR="${LLVM_ROOT}/build/lib/cmake/llvm" \
-        -C cmake.define.GUROBI_DIR="${GUROBI_DIR}" \
-        /src/laksa; \
-    # DESTDIR=/rootfs cmake --install build --component LAKSAPythonModules \
-    #     --prefix "${py_site}"; \
+    DESTDIR=/rootfs cmake --install build --component LAKSAPythonModules \
+        --prefix "${py_site}"; \
     test -f "/rootfs${py_site}/mlir_laksa/ir.py"; \
-    test -x "/rootfs${VIRTUAL_ENV}/bin/laksa-extract-hls-profile"; \
-    test -x "/rootfs${VIRTUAL_ENV}/bin/laksa-merge-profiles"; \
     \
     cp -a "${LLVM_ROOT}"/build/lib/*.so* "/rootfs${LLVM_ROOT}/build/lib/"; \
     cp -a "${GUROBI_DIR}"/lib/libgurobi*.so* "/rootfs${GUROBI_DIR}/lib/"; \
@@ -175,7 +147,7 @@ FROM ubuntu:${UBUNTU_VERSION} AS runtime
 ARG VCS_REF=unknown
 
 LABEL org.opencontainers.image.title="LAKSA" \
-      org.opencontainers.image.description="LAKSA MLIR compiler and Mocasin with their Python packages" \
+      org.opencontainers.image.description="LAKSA MLIR compiler (ladle, laksa-opt, laksa-translate, laksa-lsp-server) with the mlir_laksa Python bindings" \
       org.opencontainers.image.source="https://github.com/tud-ccc/laksa" \
       org.opencontainers.image.licenses="GPL-3.0-only" \
       org.opencontainers.image.revision="${VCS_REF}"
@@ -193,7 +165,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         graphviz \
         libedit2 \
         libgomp1 \
-        liblua5.3-0 \
         libncurses6 \
         libstdc++6 \
         libtinfo6 \
@@ -213,10 +184,6 @@ RUN set -eux; \
     pip install --no-cache-dir -r /tmp/requirements.txt; \
     rm /tmp/requirements.txt; \
     pip install --no-cache-dir \
-        jupyterlab \
-        notebook \
-        ipykernel \
-        ipywidgets \
         matplotlib \
         pandas \
         scipy \
@@ -231,14 +198,6 @@ RUN set -eux; \
         lit \
         filecheck; \
     python3 -c 'import numpy; assert numpy.__version__ <= "2.1.2", numpy.__version__'
-
-# Install the complete, prebuilt Mocasin dependency set without contacting an
-# index or rebuilding native extensions in the runtime image.
-RUN --mount=type=bind,from=builder,source=/opt/mocasin-wheels,target=/tmp/mocasin-wheels \
-    set -eux; \
-    pip install --no-cache-dir --no-index --no-deps \
-        /tmp/mocasin-wheels/*.whl; \
-    pip check
 
 COPY --from=builder /rootfs/ /
 
@@ -259,8 +218,7 @@ RUN set -eux; \
     missing=0; \
     for f in /usr/local/bin/ladle /usr/local/bin/laksa-opt \
              /usr/local/bin/laksa-translate /usr/local/bin/laksa-lsp-server \
-             $(find "${VIRTUAL_ENV}"/lib/python3.12/site-packages/mlir_laksa -name '*.so') \
-             $(find "${VIRTUAL_ENV}"/lib/python3.12/site-packages/mpsym -name '*.so'); do \
+             $(find "${VIRTUAL_ENV}"/lib/python3.12/site-packages/mlir_laksa -name '*.so'); do \
         if ldd "$f" 2>&1 | grep -q 'not found'; then \
             echo "unresolved shared libraries in $f:" >&2; \
             ldd "$f" | grep 'not found' >&2; \
@@ -270,20 +228,13 @@ RUN set -eux; \
     test "${missing}" -eq 0; \
     laksa-opt --version; \
     laksa-translate --help > /dev/null; \
-    laksa-extract-hls-profile --help > /dev/null; \
-    laksa-merge-profiles --help > /dev/null; \
-    mocasin --help > /dev/null; \
     python3 -c \
-        "import mocasin, mpsym, pynauty; from mlir_laksa.ir import Context; from mlir_laksa.dialects import dfg, emithls; print('LAKSA and Mocasin imports OK')"
+        "from mlir_laksa.ir import Context; from mlir_laksa.dialects import dfg, emithls; print('mlir_laksa import OK')"
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 
-# --- Tutorial -----------------------------------------------------------------
-COPY examples/cps26 /root/cps26
-
-EXPOSE 8888
-WORKDIR /root/cps26
+WORKDIR /work
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["bash"]

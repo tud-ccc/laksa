@@ -15,15 +15,4 @@ def FuncOutlineComputationLeaf : Pass<"func-outline-computation-leaf", "func::Fu
     let constructor = "mlir::func::createFuncOutlineComputationLeafPass()";
 }
 
-def FuncRemoveOutlinedFunctionWrappers
-    : Pass<"func-remove-outlined-function-wrappers", "ModuleOp"> {
-    let summary = "Remove root wrappers left by computation-node outlining";
-    let constructor =
-        "mlir::func::createFuncRemoveOutlinedFunctionWrappersPass()";
-
-    let dependentDialects = [
-        "func::FuncDialect"
-    ];
-}
-
 #endif // FUNC_EXT_PASSES

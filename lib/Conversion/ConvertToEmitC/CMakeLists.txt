@@ -8,8 +8,6 @@ add_mlir_conversion_library(ConvertToEmitC
         Core
 
     LINK_LIBS PUBLIC
-        ConvertToDFG
-        FuncExtTransforms
         MLIRPass
         ReshapedCopyToLoops
 )

@@ -1,6 +1,5 @@
 add_mlir_dialect_library(FuncExtTransforms
         OutlineComputationLeaf.cpp
-        RemoveOutlinedFunctionWrappers.cpp
 
     ENABLE_AGGREGATION
 

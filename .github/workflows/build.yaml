@@ -2,7 +2,7 @@ name: Build LAKSA
 
 on:
   push:
-    branches: [main, cps-tutorial]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -147,9 +147,7 @@ jobs:
         with:
           context: .
           platforms: linux/${{ matrix.arch }}
-          build-args: |
-            VCS_REF=${{ github.sha }}
-            MOCASIN_REF=cps-tutorial
+          build-args: VCS_REF=${{ github.sha }}
           provenance: false
           cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ matrix.arch }}
           cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}:buildcache-{1},mode=max', env.IMAGE, matrix.arch) || '' }}
