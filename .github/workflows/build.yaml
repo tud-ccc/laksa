@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
 
 env:
-  LLVM_PKG_VERSION: "22.1.7-py312-release-shared"
-  LLVM_PKG_RELEASE_TAG: "llvm-mlir-22.1.7-py312-release-shared"
-  PIP_BREAK_SYSTEM_PACKAGES: "1"
+  LLVM_PKG_VERSION: "23.1.2"
+  LLVM_PKG_RELEASE_TAG: "llvm-mlir-py312-release-shared"
+  LLVM_PKG_REPO: "jhbi826c/llvm-build"
   IMAGE: ghcr.io/${{ github.repository }}
 
 permissions:
@@ -25,14 +25,10 @@ jobs:
         include:
           - arch: amd64
             runner: ubuntu-24.04
-            llvm_asset: llvm-22-amd64.tar.zst
             gurobi_platform: linux64
           - arch: arm64
             runner: ubuntu-24.04-arm
-            llvm_asset: llvm-22-arm64.tar.zst
             gurobi_platform: armlinux64
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v7
 
@@ -40,7 +36,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build clang lld mold xz-utils zstd curl \
+            cmake ninja-build clang mold zstd curl \
             python3-dev portaudio19-dev build-essential doxygen
 
       - name: Download prebuilt LLVM
@@ -48,13 +44,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release download "${{ env.LLVM_PKG_RELEASE_TAG }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "${{ matrix.llvm_asset }}" \
+            --repo "${{ env.LLVM_PKG_REPO }}" \
+            --pattern "llvm-${{ env.LLVM_PKG_VERSION }}-${{ matrix.arch }}.tar.zst" \
             --output /tmp/llvm.tar.zst
           sudo mkdir -p /opt
           sudo tar --use-compress-program='zstd -d' -xf /tmp/llvm.tar.zst -C /opt
           rm /tmp/llvm.tar.zst
-          echo "/opt/llvm-22/build/lib" | sudo tee /etc/ld.so.conf.d/llvm-22.conf
+          echo "/opt/llvm-23/build/lib" | sudo tee /etc/ld.so.conf.d/llvm-23.conf
           sudo ldconfig
 
       - name: Install Gurobi
@@ -78,11 +74,11 @@ jobs:
             -DCMAKE_CXX_COMPILER=clang++ \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_STANDARD=20 \
-            -DMLIR_DIR=/opt/llvm-22/build/lib/cmake/mlir \
-            -DLLVM_DIR=/opt/llvm-22/build/lib/cmake/llvm \
+            -DMLIR_DIR=/opt/llvm-23/build/lib/cmake/mlir \
+            -DLLVM_DIR=/opt/llvm-23/build/lib/cmake/llvm \
             -DGUROBI_DIR=/opt/gurobi1203/${{ matrix.gurobi_platform }} \
             -DLLVM_USE_LINKER=mold \
-            -DLLVM_EXTERNAL_LIT=/opt/llvm-22/build/bin/llvm-lit \
+            -DLLVM_EXTERNAL_LIT=/opt/llvm-23/build/bin/llvm-lit \
             -Dnanobind_DIR="$NANOBIND_DIR" \
             -DPython3_EXECUTABLE=$(which python3) \
             -DPython_EXECUTABLE=$(which python3) \

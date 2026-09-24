@@ -25,8 +25,8 @@ if [ -n "${MLIR_DIR:-}" ] && [ -d "$MLIR_DIR" ]; then
     fi
 else
     case "$(uname -m)" in
-        x86_64)         LLVM_ASSET=llvm-22-amd64.tar.zst; GUROBI_PLATFORM=linux64 ;;
-        aarch64|arm64)  LLVM_ASSET=llvm-22-arm64.tar.zst; GUROBI_PLATFORM=armlinux64 ;;
+        x86_64)         LLVM_ASSET=llvm-23.1.2-amd64.tar.zst; GUROBI_PLATFORM=linux64 ;;
+        aarch64|arm64)  LLVM_ASSET=llvm-23.1.2-arm64.tar.zst; GUROBI_PLATFORM=armlinux64 ;;
         *)
             echo "ERROR: unsupported architecture $(uname -m)." >&2
             exit 1
@@ -34,8 +34,8 @@ else
     esac
 
     LLVM_TARBALL="${1:-${LLVM_TARBALL:-$BUILD_DIR/$LLVM_ASSET}}"
-    LLVM_RELEASE_TAG="${LLVM_RELEASE_TAG:-llvm-mlir-22.1.7-py312-release-shared}"
-    LLVM_RELEASE_URL="${LLVM_RELEASE_URL:-https://github.com/tud-ccc/laksa/releases/download/$LLVM_RELEASE_TAG}"
+    LLVM_RELEASE_TAG="${LLVM_RELEASE_TAG:-llvm-mlir-py312-release-shared}"
+    LLVM_RELEASE_URL="${LLVM_RELEASE_URL:-https://github.com/jhbi826c/llvm-build/releases/download/$LLVM_RELEASE_TAG}"
 
     GUROBI_VERSION="${GUROBI_VERSION:-12.0.3}"
     GUROBI_MAJOR_MINOR="${GUROBI_VERSION%.*}"
@@ -58,7 +58,7 @@ else
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    LLVM_ROOT="$BUILD_DIR/llvm-22"
+    LLVM_ROOT="$BUILD_DIR/llvm-23"
     if [ -x "$LLVM_ROOT/build/bin/mlir-opt" ]; then
         log "LLVM/MLIR already extracted at $LLVM_ROOT"
     else

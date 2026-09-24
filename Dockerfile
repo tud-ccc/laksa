@@ -8,14 +8,14 @@ ARG UBUNTU_VERSION=24.04
 FROM ubuntu:${UBUNTU_VERSION} AS builder
 
 ARG TARGETARCH
-ARG LLVM_RELEASE=https://github.com/tud-ccc/laksa/releases/download/llvm-mlir-22.1.7-py312-release-shared
-ARG LLVM_ASSET_AMD64=llvm-22-amd64.tar.zst
-ARG LLVM_ASSET_ARM64=llvm-22-arm64.tar.zst
+ARG LLVM_RELEASE=https://github.com/jhbi826c/llvm-build/releases/download/llvm-mlir-py312-release-shared
+ARG LLVM_ASSET_AMD64=llvm-23.1.2-amd64.tar.zst
+ARG LLVM_ASSET_ARM64=llvm-23.1.2-arm64.tar.zst
 ARG GUROBI_VERSION=12.0.3
 ARG BUILD_TYPE=Release
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    LLVM_ROOT=/opt/llvm-22 \
+    LLVM_ROOT=/opt/llvm-23 \
     GUROBI_DIR=/opt/gurobi \
     VIRTUAL_ENV=/opt/venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
@@ -68,7 +68,7 @@ RUN set -eux; \
     test -f "${GUROBI_DIR}/include/gurobi_c.h"
 
 RUN set -eux; \
-    echo "${LLVM_ROOT}/build/lib" > /etc/ld.so.conf.d/llvm-22.conf; \
+    echo "${LLVM_ROOT}/build/lib" > /etc/ld.so.conf.d/llvm-23.conf; \
     echo "${GUROBI_DIR}/lib"      > /etc/ld.so.conf.d/gurobi.conf; \
     ldconfig
 
@@ -153,7 +153,7 @@ LABEL org.opencontainers.image.title="LAKSA" \
       org.opencontainers.image.revision="${VCS_REF}"
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    LLVM_ROOT=/opt/llvm-22 \
+    LLVM_ROOT=/opt/llvm-23 \
     GUROBI_HOME=/opt/gurobi \
     GRB_LICENSE_FILE=/opt/gurobi/gurobi.lic \
     VIRTUAL_ENV=/opt/venv \
@@ -202,7 +202,7 @@ RUN set -eux; \
 COPY --from=builder /rootfs/ /
 
 RUN set -eux; \
-    echo "${LLVM_ROOT}/build/lib" > /etc/ld.so.conf.d/llvm-22.conf; \
+    echo "${LLVM_ROOT}/build/lib" > /etc/ld.so.conf.d/llvm-23.conf; \
     echo "${GUROBI_HOME}/lib"     > /etc/ld.so.conf.d/gurobi.conf; \
     ldconfig
 
