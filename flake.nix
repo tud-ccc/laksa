@@ -1,5 +1,6 @@
 {
   description = "LAKSA-Compiler Development Environment";
+
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     flake-utils.url = "github:numtide/flake-utils";
@@ -9,6 +10,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
+
   outputs = { self, nixpkgs, flake-utils, mlir }:
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -16,9 +18,13 @@
           inherit system;
           config.allowUnfree = true;
         };
-        mlirPkg = mlir.packages.${system}.mlir;
-        pythonEnv = mlir.packages.${system}.pythonEnv;
-        clangStdenv = mlir.packages.${system}.clangStdenv;
+        mlirPackages = mlir.lib.mkPackages {
+          inherit system;
+          enableCIR = false;
+        };
+        mlirPkg = mlirPackages.mlir;
+        pythonEnv = mlirPackages.pythonEnv;
+        clangStdenv = mlirPackages.clangStdenv;
         mlirPythonPath = "${mlirPkg}/python_packages/mlir_core";
       in
       {
