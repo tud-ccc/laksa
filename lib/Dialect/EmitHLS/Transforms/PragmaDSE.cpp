@@ -10,7 +10,9 @@
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/TypeSwitch.h>
@@ -537,8 +539,33 @@ int64_t getScalarBitWidth(Type type)
     return 0;
 }
 
-// A Xilinx BRAM18 block holds 18Kb = 18432 bits.
-constexpr int64_t kBramBits = 18432;
+// Legal depth x width configurations of one 18Kb block RAM with two read
+// ports. The 512 x 36 simple-dual-port mode cannot serve ram_2p's two reads.
+struct Bram18Pattern {
+    int64_t depth;
+    int64_t width;
+};
+constexpr Bram18Pattern kBram18Patterns[] = {
+    {16384,  1},
+    { 8192,  2},
+    { 4096,  4},
+    { 2048,  9},
+    { 1024, 18}
+};
+
+int64_t ceilDivPositive(int64_t n, int64_t d) { return (n - 1) / d + 1; }
+
+int64_t estimateBram18Blocks(int64_t width, int64_t depth)
+{
+    if (width <= 0 || depth <= 0) return 0;
+    int64_t best = std::numeric_limits<int64_t>::max();
+    for (Bram18Pattern pattern : kBram18Patterns)
+        best = std::min(
+            best,
+            ceilDivPositive(width, pattern.width)
+                * ceilDivPositive(depth, pattern.depth));
+    return best;
+}
 // Largest split factor a Full or Deferred candidate loop may pick.
 constexpr int64_t kMaxUnrollFactor = 32;
 // Largest FIFO depth taken from a consumer's per-token cycles, before merge
@@ -1041,9 +1068,9 @@ void setupArrayDimFactors(
     }
 }
 
-// Total BRAM18K blocks one local array needs: 0 for LUTRAM, otherwise a
-// compile-time baseline from the Full-kind dimensions' static sizes, times the
-// product of every Loop-kind dimension's now-resolved factor.
+// Count each bank at its partitioned depth and choose the cheapest legal
+// BRAM18 width/depth configuration. Full partitions remain an upper bound:
+// every element in a Full dimension is counted as a separate bank.
 GRBValue computeArrayBRAM(
     GRBModel &model,
     DSENode &node,
@@ -1058,37 +1085,187 @@ GRBValue computeArrayBRAM(
         return GRBValue(int64_t(0));
     }
 
-    int64_t fullFactor = 1;
-    for (auto [d, dim] : llvm::enumerate(dims))
-        if (dim.kind == DimPartitionKind::Full)
-            fullFactor *= arrType.getShape()[d];
-    int64_t perInstanceBits = arrType.getNumElements() / fullFactor
-                              * getScalarBitWidth(arrType.getElementType());
-    int64_t baselineBlocks = (perInstanceBits + kBramBits - 1) / kBramBits;
-
-    SmallVector<GRBValue> loopFactors;
+    int64_t width = getScalarBitWidth(arrType.getElementType());
+    if (width <= 0) return GRBValue(int64_t(0));
+    int64_t fullFactor = 1, staticDepth = 1, maxBankDepth = 1;
+    SmallVector<GRBValue> loopFactors, bankDimDepths;
     for (auto [d, dim] : llvm::enumerate(dims)) {
-        if (dim.kind != DimPartitionKind::Loop) continue;
-        for (auto &[dd, factor] : node.arrayDimFactors[varOp.getVariable()])
-            if (dd == static_cast<int64_t>(d)) loopFactors.push_back(factor);
+        int64_t extent = arrType.getShape()[d];
+        if (dim.kind == DimPartitionKind::Full) {
+            fullFactor *= extent;
+            continue;
+        }
+        if (dim.kind == DimPartitionKind::Sequential) {
+            staticDepth *= extent;
+            continue;
+        }
+
+        maxBankDepth *= extent;
+        GRBValue factor;
+        for (auto &[dd, dimFactor] :
+             node.arrayDimFactors.lookup(varOp.getVariable()))
+            if (dd == static_cast<int64_t>(d)) {
+                factor = dimFactor;
+                break;
+            }
+        if (!factor.isValid())
+            llvm_unreachable("missing local array partition factor");
+        loopFactors.push_back(factor);
+
+        std::string dimName = namePrefix + "_dim" + std::to_string(d);
+        GRBVar factorVar = materializeVar(model, factor, dimName + "_factor");
+        GRBVar dimDepth = model.addVar(
+            1.0,
+            double(extent),
+            0.0,
+            GRB_INTEGER,
+            dimName + "_depth");
+        GRBQuadExpr product(factorVar * dimDepth);
+        model.addQConstr(
+            product >= double(extent),
+            (dimName + "_depth_lo").c_str());
+        model.addQConstr(
+            product - factorVar <= double(extent - 1),
+            (dimName + "_depth_hi").c_str());
+        bankDimDepths.push_back(GRBValue(dimDepth));
     }
 
+    if (loopFactors.empty())
+        return GRBValue(estimateBram18Blocks(width, staticDepth) * fullFactor);
+
+    maxBankDepth *= staticDepth;
+    GRBValue dimDepthProduct =
+        chainProduct(model, bankDimDepths, namePrefix + "_dimdepth");
+    GRBVar bankDepth = materializeVar(
+        model,
+        GRBValue(dimDepthProduct.getExpr() * double(staticDepth)),
+        namePrefix + "_bankdepth");
+
+    SmallVector<GRBVar> patternCosts;
+    int64_t maxPatternCost = 1;
+    for (auto [i, pattern] : llvm::enumerate(kBram18Patterns)) {
+        std::string patternName = namePrefix + "_pattern" + std::to_string(i);
+        int64_t widthBlocks = ceilDivPositive(width, pattern.width);
+        int64_t maxDepthBlocks = ceilDivPositive(maxBankDepth, pattern.depth);
+        int64_t maxCost = widthBlocks * maxDepthBlocks;
+        maxPatternCost = std::max(maxPatternCost, maxCost);
+        GRBVar patternCost = model.addVar(
+            double(widthBlocks),
+            double(maxCost),
+            0.0,
+            GRB_INTEGER,
+            patternName + "_cost");
+        if (maxDepthBlocks > 1) {
+            GRBVar depthBlocks = model.addVar(
+                1.0,
+                double(maxDepthBlocks),
+                0.0,
+                GRB_INTEGER,
+                patternName + "_depthblocks");
+            model.addConstr(
+                double(pattern.depth) * depthBlocks >= bankDepth,
+                patternName + "_depth_lo");
+            model.addConstr(
+                double(pattern.depth) * depthBlocks
+                    <= bankDepth + double(pattern.depth - 1),
+                patternName + "_depth_hi");
+            model.addConstr(
+                patternCost == double(widthBlocks) * depthBlocks,
+                patternName + "_cost_link");
+        }
+        patternCosts.push_back(patternCost);
+    }
+    GRBVar blocksPerBank = model.addVar(
+        1.0,
+        double(maxPatternCost),
+        0.0,
+        GRB_INTEGER,
+        namePrefix + "_blocks_per_bank");
+    model.addGenConstrMin(
+        blocksPerBank,
+        patternCosts.data(),
+        static_cast<int>(patternCosts.size()),
+        GRB_INFINITY,
+        namePrefix + "_best_pattern");
+
     LAKSA_DEBUG(
-        llvm::dbgs()
-        << "    " << varOp->getLoc() << " BRAM: baseline=" << baselineBlocks
-        << " BRAM18K x " << fullFactor << " (full-partitioned dims) x "
-        << loopFactors.size() << " loop-driven dim(s)");
+        llvm::dbgs() << "    " << varOp->getLoc() << " BRAM: " << fullFactor
+                     << " full-partition banks x " << loopFactors.size()
+                     << " loop-driven dimension(s), depth after partition");
     GRBValue loopFactorProduct =
         chainProduct(model, loopFactors, namePrefix + "_loopfactor");
+    GRBVar loopBankCount =
+        materializeVar(model, loopFactorProduct, namePrefix + "_loopbanks");
     return GRBValue(
-        loopFactorProduct.getExpr() * double(baselineBlocks * fullFactor));
+        GRBQuadExpr(loopBankCount * blocksPerBank) * double(fullFactor));
 }
 
-// Adds the single global constraint that every local array's BRAM usage,
-// summed across every node, must fit within "availableBRAM" BRAM18K blocks;
-// returns that total for callers that also want to report it.
+// HLS normally allocates a read-data buffer in each used M_AXI read adapter.
+// The default 16 outstanding requests and 16-word bursts give 256 words.
+// A write-only port is not charged here: its buffer may be optimized out, as
+// happens in the observed storage report. Count the interface once globally.
+GRBValue computeTopAXIBRAM(GRBModel &model, FuncOp topFunc, DSEGraph &graph)
+{
+    constexpr int64_t kAXIBufferDepth = 16 * 16;
+    static_assert(kAXIBufferDepth <= kBram18Patterns[4].depth);
+    GRBLinExpr total = 0;
+    for (auto [topIdx, topArg] : llvm::enumerate(topFunc.getArguments())) {
+        auto ptrType = dyn_cast<PointerType>(topArg.getType());
+        if (!ptrType) continue;
+
+        bool reads = false;
+        SmallVector<GRBValue> possibleWidths;
+        for (auto &node : graph.nodes) {
+            for (auto [argIdx, callArg] :
+                 llvm::enumerate(node->call.getArgOperands())) {
+                if (callArg != topArg) continue;
+                Value ptrArg = node->callee.getArgument(argIdx);
+                node->callee.walk([&](ArrayPointerReadOp op) {
+                    if (op.getPointer() == ptrArg) reads = true;
+                });
+                for (BlockArgument port : node->callee.getArguments()) {
+                    auto arrType = dyn_cast<emithls::ArrayType>(port.getType());
+                    if (!arrType || arrType.getShape().empty()) continue;
+                    Type elemType = arrType.getElementType();
+                    if (auto streamType = dyn_cast<StreamType>(elemType))
+                        elemType = streamType.getElementType();
+                    int64_t elemBits = getScalarBitWidth(elemType);
+                    if (elemBits <= 0) continue;
+                    GRBValue factor(int64_t(1));
+                    for (auto &[dim, portFactor] :
+                         node->arrayDimFactors.lookup(port))
+                        if (dim == 0) factor = portFactor;
+                    possibleWidths.push_back(
+                        GRBValue(factor.getExpr() * double(elemBits)));
+                    break;
+                }
+            }
+        }
+        if (!reads) continue;
+
+        std::string name = "top_axi_port" + std::to_string(topIdx);
+        GRBValue width =
+            possibleWidths.empty()
+                ? GRBValue(getScalarBitWidth(ptrType.getElementType()))
+                : maxOfAll(model, possibleWidths, name + "_width");
+        GRBVar widthVar = materializeVar(model, width, name + "_bits");
+        GRBVar blocks =
+            model.addVar(1.0, GRB_INFINITY, 0.0, GRB_INTEGER, name + "_blocks");
+        model.addConstr(18.0 * blocks >= widthVar, name + "_blocks_lo");
+        model.addConstr(18.0 * blocks <= widthVar + 17.0, name + "_blocks_hi");
+        total += blocks;
+        LAKSA_DEBUG(
+            llvm::dbgs()
+            << "    M_AXI arg" << topIdx << ": 256-word read buffer");
+    }
+    return GRBValue(total);
+}
+
+// Adds the single global constraint for local arrays and top M_AXI read
+// buffers, returning that same total for reporting.
 GRBValue addBRAMBudgetConstraint(
     GRBModel &model,
+    FuncOp topFunc,
     DSEGraph &graph,
     const DenseMap<Operation*, SmallVector<CandidateLoop>> &candidatesByFunc,
     int64_t availableBRAM)
@@ -1123,6 +1300,7 @@ GRBValue addBRAMBudgetConstraint(
         node->totalBRAM = GRBValue(nodeTotalBRAM);
         totalBRAM += nodeTotalBRAM;
     }
+    totalBRAM += computeTopAXIBRAM(model, topFunc, graph).getExpr();
     model.addQConstr(
         totalBRAM,
         GRB_LESS_EQUAL,
@@ -2145,12 +2323,12 @@ void printArrayMemories(
             for (auto [d, dim] : llvm::enumerate(dims))
                 if (dim.kind == DimPartitionKind::Full)
                     fullFactor *= arrType.getShape()[d];
-            int64_t perInstanceBits =
-                arrType.getNumElements() / fullFactor
-                * getScalarBitWidth(arrType.getElementType());
-            int64_t perInstanceBlocks =
-                (perInstanceBits + kBramBits - 1) / kBramBits;
-            os << "BRAM  baseline=" << perInstanceBlocks << " BRAM18K";
+            int64_t perInstanceDepth = arrType.getNumElements() / fullFactor;
+            int64_t perInstanceBlocks = estimateBram18Blocks(
+                getScalarBitWidth(arrType.getElementType()),
+                perInstanceDepth);
+            os << "BRAM  before loop partition=" << perInstanceBlocks
+               << " BRAM18K";
             if (fullFactor > 1)
                 os << " x " << fullFactor << " = "
                    << perInstanceBlocks * fullFactor << " BRAM18K";
@@ -2593,8 +2771,12 @@ void EmitHLSPragmaDSEPass::runOnOperation()
     setupArrayDimFactors(model, *graph, candidatesByFunc);
 
     LAKSA_DEBUG(llvm::dbgs() << "Setting up BRAM budget:");
-    GRBValue totalBRAM =
-        addBRAMBudgetConstraint(model, *graph, candidatesByFunc, availableBRAM);
+    GRBValue totalBRAM = addBRAMBudgetConstraint(
+        model,
+        topFunc,
+        *graph,
+        candidatesByFunc,
+        availableBRAM);
 
     LAKSA_DEBUG(llvm::dbgs() << "Setting up pipeline decisions:");
     setupPipelineConstraints(model, *graph, candidatesByFunc);
