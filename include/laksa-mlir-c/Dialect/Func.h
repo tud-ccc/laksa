@@ -1,5 +1,5 @@
 //===-- laksa-mlir-c/Dialect/Func.h - C API for Func passes ----------*-
-//C-*-===//
+// C-*-===//
 //
 // @author  Jiahong Bi (jiahong.bi@tu-dresden.de)
 //===----------------------------------------------------------------------===//

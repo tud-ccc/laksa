@@ -1,5 +1,5 @@
 //===-- laksa-mlir-c/Dialect/Linalg.h - C API for Linalg passes ------*-
-//C-*-===//
+// C-*-===//
 //
 // @author  Jiahong Bi (jiahong.bi@tu-dresden.de)
 //===----------------------------------------------------------------------===//

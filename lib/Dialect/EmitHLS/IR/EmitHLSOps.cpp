@@ -1272,7 +1272,7 @@ LogicalResult ArithFusedOp::verify()
 ///   `emithls.arith_data_range` data `(` high-bit `,` low-bit `)`
 ///     `:` data-type `->` result-type
 /// @endcode
-ParseResult ArithDataRangeOp ::parse(OpAsmParser &parser, OperationState &state)
+ParseResult ArithDataRangeOp::parse(OpAsmParser &parser, OperationState &state)
 {
     OpAsmParser::UnresolvedOperand data, hBit, lBit;
     Type dataTy, outTy;
