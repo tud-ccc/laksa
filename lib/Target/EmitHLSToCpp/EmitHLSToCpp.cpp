@@ -1229,8 +1229,8 @@ HLSCppEmitter::emitOperation(Operation &op, bool trailingSemicolon)
         IfOp,
         IncludeOp,
         PragmaInterface>(op);
-    bool trailingNewLine =
-        !isa<ExpressionOp>(op) && !op.getParentOfType<ExpressionOp>();
+    bool trailingNewLine = !isa<ModuleOp, PragmaDataflowOp, ExpressionOp>(op)
+                           && !op.getParentOfType<ExpressionOp>();
     if (auto varOp = dyn_cast<VariableOp>(op))
         if (shouldEmitConstant(varOp)) {
             trailingSemicolon = false;
