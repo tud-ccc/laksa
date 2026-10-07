@@ -5,6 +5,7 @@
 .vscode
 .envrc
 __pycache__/
+*.pyc
 
 build
 install
