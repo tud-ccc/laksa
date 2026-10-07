@@ -608,8 +608,8 @@ def DFG_PushOp : DFG_Op<"push", []>
         {
             %0 = arith.constant ... : index
             %1 = arith.constant ... : type
-            %token0 = dfg.push %1 to %out0 : !dfg.input<type>
-            %token1 = dfg.push %1 to %out1[%0] : !dfg.input<shapextype>
+            dfg.push %1 to %out0 : !dfg.input<type>
+            dfg.push %1 to %out1[%0] : !dfg.input<shapextype>
         }
         ```
     }];
