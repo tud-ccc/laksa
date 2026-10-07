@@ -116,6 +116,7 @@ LogicalResult emithls::translateEmitHLSToLaksaApp(ModuleOp op, raw_ostream &os)
           "#include <stdio.h>\n"
           "#include <stdlib.h>\n"
           "#include <sys/ioctl.h>\n"
+          "#include <time.h>\n"
           "#include <unistd.h>\n"
           "\n"
           "#include <laksa.h>\n"
@@ -165,6 +166,13 @@ LogicalResult emithls::translateEmitHLSToLaksaApp(ModuleOp op, raw_ostream &os)
           "        exit(EXIT_FAILURE);\n"
           "    }\n"
           "    return data;\n"
+          "}\n"
+          "\n"
+          "static double elapsed_ms(struct timespec begin, struct timespec "
+          "end)\n"
+          "{\n"
+          "    return (end.tv_sec - begin.tv_sec) * 1e3\n"
+          "           + (end.tv_nsec - begin.tv_nsec) / 1e6;\n"
           "}\n\n";
 
     if (numInputs > 0)
@@ -258,10 +266,23 @@ LogicalResult emithls::translateEmitHLSToLaksaApp(ModuleOp op, raw_ostream &os)
            << "                 .high_offset = " << name.highMacro << "},\n";
     os << "            },\n"
           "    };\n"
+          "\n"
+          "    /*\n"
+          "     * Only the kernel is timed, from starting it to seeing it "
+          "done. Moving\n"
+          "     * the buffers to and from the device is left out.\n"
+          "     */\n"
+          "    struct timespec begin, end;\n"
+          "    clock_gettime(CLOCK_MONOTONIC_RAW, &begin);\n"
           "    CHECK_IOCTL(fd, IOCTL_START_KERNEL, &start);\n"
           "\n"
           "    int done = 0;\n"
-          "    while (!done) CHECK_IOCTL(fd, IOCTL_POLL_DONE, &done);\n\n";
+          "    while (!done) CHECK_IOCTL(fd, IOCTL_POLL_DONE, &done);\n"
+          "    clock_gettime(CLOCK_MONOTONIC_RAW, &end);\n"
+          "    printf(\""
+       << designName
+       << ": ran on the FPGA in %.6f ms\\n\",\n"
+          "           elapsed_ms(begin, end));\n\n";
 
     for (const ArgNames &name : names) {
         if (name.outFile.empty()) continue;

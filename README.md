@@ -229,8 +229,13 @@ Put it in the `app/` directory, next to `app.c`, and deploy that directory to th
 `run.sh` compiles the overlay with `dtc`, loads it and the bitstream with `fpgautil`, builds `app` and `ref`, fills any missing `input<n>.bin` with random bytes, runs the design, and compares what it wrote against the reference:
 
 ```text
+<design>: ran on the FPGA in <time> ms
+reference: ran on the CPU in <time> ms
 output0.bin: all <num> elements match the reference
 ```
+
+Both times cover the kernel alone.
+`app` takes its from asserting `ap_start` to seeing `ap_done`, which leaves out copying the buffers to and from the device, and `ref` takes its around the call to the scalar reference, which leaves out reading the `.bin` files and comparing them.
 
 Mismatches are reported per element, with the index into the output buffer, and `ref` exits non-zero.
 

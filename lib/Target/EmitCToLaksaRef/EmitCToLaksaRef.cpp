@@ -122,6 +122,16 @@ void emitReadAll(raw_ostream &os)
           "}\n";
 }
 
+void emitElapsedMs(raw_ostream &os)
+{
+    os << "static double elapsed_ms(struct timespec begin, struct timespec "
+          "end)\n"
+          "{\n"
+          "    return (end.tv_sec - begin.tv_sec) * 1e3\n"
+          "           + (end.tv_nsec - begin.tv_nsec) / 1e6;\n"
+          "}\n";
+}
+
 void emitCompare(raw_ostream &os, const RefArg &arg)
 {
     ArrayRef<int64_t> shape = arg.type.getShape();
@@ -255,6 +265,7 @@ LogicalResult laksa::translateEmitCToLaksaRef(ModuleOp op, raw_ostream &os)
           "#include <stdio.h>\n"
           "#include <stdlib.h>\n"
           "#include <string.h>\n"
+          "#include <time.h>\n"
           "\n";
 
     if (renameKernel)
@@ -287,6 +298,8 @@ LogicalResult laksa::translateEmitCToLaksaRef(ModuleOp op, raw_ostream &os)
 
     os << "\n";
     emitReadAll(os);
+    os << "\n";
+    emitElapsedMs(os);
 
     for (const RefArg &arg : args) {
         if (!arg.isWritten) continue;
@@ -305,9 +318,19 @@ LogicalResult laksa::translateEmitCToLaksaRef(ModuleOp op, raw_ostream &os)
                << ")) != 0) return EXIT_FAILURE;\n";
     }
 
-    os << "\n    " << kernelCall << "(";
+    os << "\n"
+          "    // Only the kernel is timed, reading the files and comparing "
+          "is left out.\n"
+          "    struct timespec begin, end;\n"
+          "    clock_gettime(CLOCK_MONOTONIC_RAW, &begin);\n"
+          "    "
+       << kernelCall << "(";
     llvm::interleaveComma(args, os, [&](const RefArg &arg) { os << arg.name; });
-    os << ");\n\n"
+    os << ");\n"
+          "    clock_gettime(CLOCK_MONOTONIC_RAW, &end);\n"
+          "    printf(\"reference: ran on the CPU in %.6f ms\\n\",\n"
+          "           elapsed_ms(begin, end));\n"
+          "\n"
           "    long mismatches = 0;\n";
     for (const RefArg &arg : args)
         if (arg.isWritten)
