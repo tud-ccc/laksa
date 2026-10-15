@@ -5,10 +5,7 @@ if (DOXYGEN_FOUND)
     set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/doxygen.cfg)
     configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
 
-    # Resolve a sphinx-build command.
-    # Prefer the configured Python virtual environment (Python3_EXECUTABLE) so
-    # the correct interpreter is used regardless of the system PATH.
-    # Fall back to a system-wide sphinx-build if Python3_EXECUTABLE is not set.
+    # Prefer the configured Python's Sphinx over the one on PATH.
     if (Python3_EXECUTABLE)
         set(SPHINX_CMD ${Python3_EXECUTABLE} -m sphinx)
         set(SPHINX_INSTALL_DEPS
@@ -24,6 +21,12 @@ if (DOXYGEN_FOUND)
     endif()
 
     if (SPHINX_CMD)
+        # Target of docs links to source files.
+        set(LAKSA_DOCS_REPO_URL "https://github.com/tud-ccc/laksa"
+            CACHE STRING "Repository URL that docs links to source files use")
+        set(LAKSA_DOCS_REPO_REF "main"
+            CACHE STRING "Branch, tag or commit that docs links to source files use")
+
         configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/conf.py.in
             ${CMAKE_CURRENT_BINARY_DIR}/conf.py
@@ -34,21 +37,12 @@ if (DOXYGEN_FOUND)
             ${CMAKE_CURRENT_BINARY_DIR}/index.rst
             COPYONLY)
 
-        # Copy the root README and its logos into the build docs tree so Sphinx
-        # can include them.  The images live at docs/LAKSA-{Dark,Light}.png
-        # relative to the project root, and README.md's <picture> references
-        # them with that same relative path. html_extra_path in conf.py is set
-        # to "docs", but Sphinx copies the *contents* of that directory to the
-        # root of the HTML output (it does not preserve the "docs" folder name
-        # itself). So the source needs an extra docs/ nesting here --
-        # ${CMAKE_CURRENT_BINARY_DIR}/docs is the html_extra_path source, and
-        # the inner docs/ is what survives the copy, landing at
-        # <output>/docs/LAKSA-{Dark,Light}.png as required.
         configure_file(
             ${CMAKE_SOURCE_DIR}/README.md
             ${CMAKE_CURRENT_BINARY_DIR}/README.md
             COPYONLY)
 
+        # Served at docs/LAKSA-{Dark,Light}.png, the paths README.md uses.
         configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/LAKSA-Dark.png
             ${CMAKE_CURRENT_BINARY_DIR}/docs/docs/LAKSA-Dark.png
@@ -59,10 +53,7 @@ if (DOXYGEN_FOUND)
             ${CMAKE_CURRENT_BINARY_DIR}/docs/docs/LAKSA-Light.png
             COPYONLY)
 
-        # Also copy the dark logo next to conf.py itself so Sphinx's own
-        # html_logo (the sidebar logo shown across the generated site) can
-        # find it — that path is resolved relative to conf.py's directory,
-        # not through html_extra_path.
+        # html_logo is resolved relative to conf.py.
         configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/LAKSA-Dark.png
             ${CMAKE_CURRENT_BINARY_DIR}/LAKSA-Dark.png
@@ -73,15 +64,11 @@ if (DOXYGEN_FOUND)
         add_custom_target(build-laksa-doc
             ${SPHINX_INSTALL_DEPS}
             COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
-            # Remove stale Exhale RST files so symbols dropped from the XML
-            # do not leave orphaned pages that cause Breathe warnings.
+            # Drop pages of symbols that no longer exist.
             COMMAND ${CMAKE_COMMAND} -E rm -rf ${CMAKE_CURRENT_BINARY_DIR}/api
             COMMAND ${SPHINX_CMD}
                     -b html
-                    # Ignore the cached doctree/environment so that changes
-                    # to conf.py (e.g. source-read hooks) are reliably
-                    # applied even when the underlying .md/.rst sources
-                    # (e.g. mlir-tblgen output) haven't changed.
+                    # Pick up conf.py changes.
                     -E
                     ${CMAKE_CURRENT_BINARY_DIR}
                     ${SPHINX_OUTPUT}
