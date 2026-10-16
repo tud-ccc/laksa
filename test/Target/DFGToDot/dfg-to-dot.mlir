@@ -3,13 +3,13 @@
 // Computation dialects in actor bodies must be parsed even though only the
 // graph topology is exported.
 // CHECK:      digraph G_0 {
-// CHECK-NEXT:   rankdir=LR;
-// CHECK-NEXT:   subgraph cluster_graph_0 {
-// CHECK-NEXT:     label="graph";
-// CHECK:          graph_0_source_0 [label="source", shape=box];
-// CHECK-NEXT:     graph_0_sink_0 [label="sink", shape=box];
-// CHECK-NEXT:     graph_0_source_0 -> graph_0_sink_0;
-// CHECK-NEXT:   }
+// CHECK-NEXT:   layout=neato;
+// CHECK-NEXT:   splines=line;
+// CHECK-NEXT:   label="graph";
+// CHECK-NEXT:   labelloc=t;
+// CHECK-NEXT:   graph_0_source_0 [label="source", shape=box, pos="0.45,0.00!"];
+// CHECK-NEXT:   graph_0_sink_0 [label="sink", shape=box, pos="{{[0-9.]+}},0.00!"];
+// CHECK-NEXT:   graph_0_source_0 -> graph_0_sink_0;
 // CHECK-NEXT: }
 
 dfg.operator @source outputs(%out: i32) {
