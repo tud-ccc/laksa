@@ -8,6 +8,7 @@ namespace mlir {
 void registerDFGToDotTranslation();
 void registerEmitCToLaksaRefTranslation();
 void registerEmitHLSToCppTranslation();
+void registerEmitHLSToDotTranslation();
 void registerEmitHLSToHLSBuildScriptTranslation();
 void registerEmitHLSToHLSTclTranslation();
 void registerEmitHLSToKriaDtsiTranslation();
@@ -22,6 +23,7 @@ inline void registerAllLAKSAMLIRTranslations()
         registerDFGToDotTranslation();
         registerEmitCToLaksaRefTranslation();
         registerEmitHLSToCppTranslation();
+        registerEmitHLSToDotTranslation();
         registerEmitHLSToHLSBuildScriptTranslation();
         registerEmitHLSToHLSTclTranslation();
         registerEmitHLSToKriaDtsiTranslation();

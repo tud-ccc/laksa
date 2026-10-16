@@ -175,6 +175,7 @@ ladle input.mlir --hls -o out_dir
 ```text
 out_dir/
 ├── hls.mlir            the design, lowered to the EmitHLS dialect
+├── hls.dot             its dataflow, with stream names and depths
 ├── ref.mlir            the same input lowered to emitc instead
 ├── hw/                 what the build host needs
 │   ├── main.cpp        Vitis HLS input

@@ -8,4 +8,5 @@ add_mlir_translation_library(MLIRTargetDFGToDot
         MLIRSupport
         MLIRTranslateLib
         DFGIR
+        MLIRTargetDotCommon
 )

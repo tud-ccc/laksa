@@ -1,6 +1,8 @@
 add_subdirectory(DFGToDot)
+add_subdirectory(DotCommon)
 add_subdirectory(EmitCToLaksaRef)
 add_subdirectory(EmitHLSToCpp)
+add_subdirectory(EmitHLSToDot)
 add_subdirectory(EmitHLSToHLSBuildScript)
 add_subdirectory(EmitHLSToHLSTcl)
 add_subdirectory(EmitHLSToKriaDtsi)

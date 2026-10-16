@@ -134,6 +134,7 @@ struct HLSArtifact {
     const char* filename;
 };
 const HLSArtifact hlsArtifacts[] = {
+    {hlsIRFilename,              "emithls-to-dot",            "",        "hls.dot"},
     {hlsIRFilename,              "emithls-to-cpp", hlsToolSubdir,       "main.cpp"},
     {hlsIRFilename,          "emithls-to-hls-tcl", hlsToolSubdir,    "run_hls.tcl"},
     {hlsIRFilename,       "emithls-to-vivado-tcl", hlsToolSubdir, "run_vivado.tcl"},
