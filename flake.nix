@@ -40,7 +40,7 @@
             pkgs.gurobi
             pkgs.zlib pkgs.libxml2
             pkgs.docker-client pkgs.docker-buildx
-            pkgs.black
+            mlirPackages.python.pkgs.black
           ];
           shellHook = ''
             export CC="${clangStdenv.cc}/bin/clang"
