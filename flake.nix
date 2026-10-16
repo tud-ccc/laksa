@@ -36,6 +36,7 @@
             clangStdenv.cc
             mlirPkg
             pkgs.doxygen
+            pkgs.graphviz pkgs.xdot
             pkgs.gurobi
             pkgs.zlib pkgs.libxml2
             pkgs.docker-client pkgs.docker-buildx
