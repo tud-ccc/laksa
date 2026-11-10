@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 env:
-  LLVM_PKG_VERSION: "23.1.2"
-  LLVM_PKG_RELEASE_TAG: "llvm-mlir-py312-release-shared"
+  LLVM_PKG_VERSION: "23.1.5"
+  LLVM_PKG_RELEASE_TAG: "llvm-23.1.5-mlir-py312-release-shared"
   LLVM_PKG_REPO: "jhbi826c/llvm-build"
   IMAGE: ghcr.io/${{ github.repository }}
 
@@ -55,10 +55,10 @@ jobs:
 
       - name: Install Gurobi
         run: |
-          curl -L "https://packages.gurobi.com/12.0/gurobi12.0.3_${{ matrix.gurobi_platform }}.tar.gz" -o /tmp/gurobi.tar.gz
+          curl -L "https://packages.gurobi.com/13.0/gurobi13.0.2_${{ matrix.gurobi_platform }}.tar.gz" -o /tmp/gurobi.tar.gz
           sudo tar xzf /tmp/gurobi.tar.gz -C /opt
           rm /tmp/gurobi.tar.gz
-          echo "/opt/gurobi1203/${{ matrix.gurobi_platform }}/lib" | sudo tee /etc/ld.so.conf.d/gurobi.conf
+          echo "/opt/gurobi1302/${{ matrix.gurobi_platform }}/lib" | sudo tee /etc/ld.so.conf.d/gurobi.conf
           sudo ldconfig
 
       - name: Install Python deps
@@ -76,7 +76,7 @@ jobs:
             -DCMAKE_CXX_STANDARD=20 \
             -DMLIR_DIR=/opt/llvm-23/build/lib/cmake/mlir \
             -DLLVM_DIR=/opt/llvm-23/build/lib/cmake/llvm \
-            -DGUROBI_DIR=/opt/gurobi1203/${{ matrix.gurobi_platform }} \
+            -DGUROBI_DIR=/opt/gurobi1302/${{ matrix.gurobi_platform }} \
             -DLLVM_USE_LINKER=mold \
             -DLLVM_EXTERNAL_LIT=/opt/llvm-23/build/bin/llvm-lit \
             -Dnanobind_DIR="$NANOBIND_DIR" \

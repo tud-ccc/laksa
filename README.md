@@ -42,7 +42,7 @@ bash build.sh
 
 ## Build on Ubuntu 24.04 (no Nix)
 
-Built and tested against [`llvm-23.1.2`](https://github.com/llvm/llvm-project/tree/llvmorg-23.1.2).
+The build scripts target [`llvm-23.1.5`](https://github.com/llvm/llvm-project/tree/llvmorg-23.1.5).
 Both `x86_64` and `aarch64` are supported; [`build.sh`](build.sh) reads `uname -m` and picks the matching Gurobi build (`linux64` / `armlinux64`) itself.
 
 Outside the Nix shell, [`build.sh`](build.sh) installs the system packages, fetches LLVM/MLIR and Gurobi, and sets up the Python venv, so it needs no arguments here either:

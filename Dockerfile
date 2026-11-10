@@ -8,10 +8,10 @@ ARG UBUNTU_VERSION=24.04
 FROM ubuntu:${UBUNTU_VERSION} AS builder
 
 ARG TARGETARCH
-ARG LLVM_RELEASE=https://github.com/jhbi826c/llvm-build/releases/download/llvm-mlir-py312-release-shared
-ARG LLVM_ASSET_AMD64=llvm-23.1.2-amd64.tar.zst
-ARG LLVM_ASSET_ARM64=llvm-23.1.2-arm64.tar.zst
-ARG GUROBI_VERSION=12.0.3
+ARG LLVM_RELEASE=https://github.com/jhbi826c/llvm-build/releases/download/llvm-23.1.5-mlir-py312-release-shared
+ARG LLVM_ASSET_AMD64=llvm-23.1.5-amd64.tar.zst
+ARG LLVM_ASSET_ARM64=llvm-23.1.5-arm64.tar.zst
+ARG GUROBI_VERSION=13.0.2
 ARG BUILD_TYPE=Release
 
 ENV DEBIAN_FRONTEND=noninteractive \
